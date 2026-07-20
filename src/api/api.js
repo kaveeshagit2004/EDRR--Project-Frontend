@@ -22,7 +22,14 @@ export const loginUser    = (data) => api.post('/auth/login', data);
 
 // ── DAMAGE REPORTS ────────────────────────────────────
 export const getAllReports       = ()           => api.get('/reports');
-export const createReport        = (data)       => api.post('/reports', data);
+export const createReport        = (data)       => {
+    if (data instanceof FormData) {
+        return api.post('/reports', data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    }
+    return api.post('/reports', data);
+};
 export const updateReportStatus  = (id, s, n)   => api.put(`/reports/${id}/status`, { status: s, adminNotes: n });
 export const updateReportProgress = (id, p)     => api.put(`/reports/${id}/progress`, { progress: p });
 export const getReportStats      = ()           => api.get('/reports/stats');
@@ -34,7 +41,7 @@ export const getCriticalWaterLevels = ()        => api.get('/water-levels/critic
 
 // ── USER MANAGEMENT ───────────────────────────────────
 export const getOfficers   = ()     => api.get('/users/officers');
-export const addOfficer    = (data) => api.post('/users/add', data);
-export const deleteOfficer = (id)   => api.delete(`/users/${id}`);
+export const addOfficer    = (data) => api.post('/users/officers', data);
+export const deleteOfficer = (id)   => api.delete(`/users/officers/${id}`);
 
 export default api;

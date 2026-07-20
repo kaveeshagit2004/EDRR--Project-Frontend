@@ -24,6 +24,8 @@ export default function AdminDashboard({ type = 'GA' }) {
     const [stats, setStats] = useState({});
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('ALL');
+    const [selectedPhotos, setSelectedPhotos] = useState(null);
+    const [photoIndex, setPhotoIndex] = useState(0);
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const isGA = type === 'GA';
 
@@ -149,12 +151,31 @@ export default function AdminDashboard({ type = 'GA' }) {
                                         <span style={{...S.badge,background:sevColor[r.severity]||'#6b7280'}}>{r.severity}</span>
                                     </div>
                                     <h3 style={{fontSize:15,fontWeight:700,margin:'0 0 4px'}}>{r.title}</h3>
-                                    <p style={{fontSize:12,color:'#6b7280',margin:'0 0 6px'}}>📍 {r.location}</p>
+                                    <p style={{fontSize:12,color:'#6b7280',margin:'0 0 6px'}}>
+                                        <a 
+                                            href={`https://www.google.com/maps/search/?api=1&query=${r.latitude},${r.longitude}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ textDecoration: 'none', color: '#4b5563', fontWeight: 500 }}
+                                        >
+                                            📍 {r.location} <span style={{ fontSize: 10, color: '#2563eb', marginLeft: 4 }}>(View Map)</span>
+                                        </a>
+                                    </p>
                                     <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
                                         <span style={{fontSize:12,color:'#6b7280',background:'#f3f4f6',padding:'2px 8px',borderRadius:4}}>{r.damageType?.replace('_',' ')}</span>
                                         {r.reporterName && <span style={{fontSize:12,color:'#6b7280'}}>By: {r.reporterName}</span>}
                                     </div>
                                     {r.description && <p style={{fontSize:13,color:'#555',margin:'0 0 8px'}}>{r.description}</p>}
+                                    {r.photoUrls && r.photoUrls.length > 0 && (
+                                        <div style={{ marginBottom: 12, cursor: 'pointer', position: 'relative' }} onClick={() => { setSelectedPhotos(r.photoUrls); setPhotoIndex(0); }}>
+                                            <img src={r.photoUrls[0]} alt={r.title} style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 8 }} />
+                                            {r.photoUrls.length > 1 && (
+                                                <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
+                                                    +{r.photoUrls.length - 1} More Photo{r.photoUrls.length > 2 ? 's' : ''}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     {r.adminNotes && (
                                         <div style={{background:'#eff6ff',borderRadius:7,padding:'7px 10px',fontSize:12,color:'#1d4ed8',marginBottom:8}}>
                                             📝 {r.adminNotes}
@@ -223,6 +244,49 @@ export default function AdminDashboard({ type = 'GA' }) {
                     </div>
                 )}
             </div>
+
+            {/* ── PHOTO SLIDER MODAL ── */}
+            {selectedPhotos && (
+                <div style={S.modalOverlay} onClick={() => setSelectedPhotos(null)}>
+                    <div style={S.modalContent} onClick={e => e.stopPropagation()}>
+                        <button style={S.modalClose} onClick={() => setSelectedPhotos(null)}>✕</button>
+                        
+                        <div style={S.sliderContainer}>
+                            {selectedPhotos.length > 1 && (
+                                <button style={S.navBtnLeft} onClick={() => setPhotoIndex((photoIndex - 1 + selectedPhotos.length) % selectedPhotos.length)}>
+                                    ◀
+                                </button>
+                            )}
+                            
+                            <img src={selectedPhotos[photoIndex]} alt="Report detail" style={S.sliderImg} />
+                            
+                            {selectedPhotos.length > 1 && (
+                                <button style={S.navBtnRight} onClick={() => setPhotoIndex((photoIndex + 1) % selectedPhotos.length)}>
+                                    ▶
+                                </button>
+                            )}
+                        </div>
+                        
+                        {selectedPhotos.length > 1 && (
+                            <div style={S.sliderDots}>
+                                {selectedPhotos.map((_, idx) => (
+                                    <span 
+                                        key={idx} 
+                                        style={{
+                                            ...S.sliderDot, 
+                                            background: idx === photoIndex ? '#1a2c4a' : '#d1d5db'
+                                        }}
+                                        onClick={() => setPhotoIndex(idx)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                        <div style={{ textAlign: 'center', marginTop: 8, color: '#6b7280', fontSize: 12, fontWeight: 600 }}>
+                            {photoIndex + 1} / {selectedPhotos.length}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -241,4 +305,47 @@ const S = {
     badge: {fontSize:11,color:'white',padding:'3px 9px',borderRadius:20,fontWeight:600},
     btn: {padding:'6px 14px',border:'none',borderRadius:7,color:'white',fontSize:12,fontWeight:600,cursor:'pointer'},
     select: {padding:'8px 12px',border:'1.5px solid #e5e7eb',borderRadius:8,fontSize:13,background:'white'},
+    
+    // Modal & Slider Styles
+    modalOverlay: {
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', zIndex: 1000, padding: 16
+    },
+    modalContent: {
+        background: 'white', borderRadius: 12, padding: '30px 20px 20px', maxWidth: 600,
+        width: '100%', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+    },
+    modalClose: {
+        position: 'absolute', top: 12, right: 12, background: '#f3f4f6',
+        border: 'none', borderRadius: '50%', width: 28, height: 28,
+        display: 'flex', alignItems: 'center', justifycontent: 'center',
+        cursor: 'pointer', fontWeight: 'bold', color: '#4b5563', zIndex: 10
+    },
+    sliderContainer: {
+        display: 'flex', alignItems: 'center', justifycontent: 'center',
+        position: 'relative', minHeight: 250, background: '#f3f4f6',
+        borderRadius: 8, overflow: 'hidden', marginTop: 10
+    },
+    sliderImg: {
+        maxWidth: '100%', maxHeight: 400, objectFit: 'contain'
+    },
+    navBtnLeft: {
+        position: 'absolute', left: 10, background: 'rgba(255,255,255,0.85)',
+        border: 'none', borderRadius: '50%', width: 36, height: 36,
+        display: 'flex', alignItems: 'center', justifycontent: 'center',
+        cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.15)', fontWeight: 'bold', zIndex: 10
+    },
+    navBtnRight: {
+        position: 'absolute', right: 10, background: 'rgba(255,255,255,0.85)',
+        border: 'none', borderRadius: '50%', width: 36, height: 36,
+        display: 'flex', alignItems: 'center', justifycontent: 'center',
+        cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.15)', fontWeight: 'bold', zIndex: 10
+    },
+    sliderDots: {
+        display: 'flex', justifycontent: 'center', gap: 6, marginTop: 12
+    },
+    sliderDot: {
+        width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', transition: 'background 0.2s'
+    }
 };

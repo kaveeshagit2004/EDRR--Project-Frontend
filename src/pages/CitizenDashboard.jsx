@@ -19,6 +19,8 @@ export default function CitizenDashboard() {
   const [waterLevels, setWaterLevels] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
+  const [selectedPhotos, setSelectedPhotos] = useState(null);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const user = { fullName: "Citizen" };
 
   useEffect(() => {
@@ -112,7 +114,7 @@ export default function CitizenDashboard() {
 
             <h3 style={S.sectionTitle}>Recent Damage Reports</h3>
             {reports.slice(0, 3).map((r) => (
-              <ReportCard key={r.id} report={r} />
+              <ReportCard key={r.id} report={r} onPhotoClick={(photos) => { setSelectedPhotos(photos); setPhotoIndex(0); }} />
             ))}
           </div>
         )}
@@ -124,7 +126,7 @@ export default function CitizenDashboard() {
             {reports.length === 0 ? (
               <EmptyState msg="No reports available." />
             ) : (
-              reports.map((r) => <ReportCard key={r.id} report={r} />)
+              reports.map((r) => <ReportCard key={r.id} report={r} onPhotoClick={(photos) => { setSelectedPhotos(photos); setPhotoIndex(0); }} />)
             )}
           </div>
         )}
@@ -141,11 +143,54 @@ export default function CitizenDashboard() {
           </div>
         )}
       </div>
+
+      {/* ── PHOTO SLIDER MODAL ── */}
+      {selectedPhotos && (
+        <div style={S.modalOverlay} onClick={() => setSelectedPhotos(null)}>
+          <div style={S.modalContent} onClick={e => e.stopPropagation()}>
+            <button style={S.modalClose} onClick={() => setSelectedPhotos(null)}>✕</button>
+            
+            <div style={S.sliderContainer}>
+              {selectedPhotos.length > 1 && (
+                <button style={S.navBtnLeft} onClick={() => setPhotoIndex((photoIndex - 1 + selectedPhotos.length) % selectedPhotos.length)}>
+                  ◀
+                </button>
+              )}
+              
+              <img src={selectedPhotos[photoIndex]} alt="Report detail" style={S.sliderImg} />
+              
+              {selectedPhotos.length > 1 && (
+                <button style={S.navBtnRight} onClick={() => setPhotoIndex((photoIndex + 1) % selectedPhotos.length)}>
+                  ▶
+                </button>
+              )}
+            </div>
+            
+            {selectedPhotos.length > 1 && (
+              <div style={S.sliderDots}>
+                {selectedPhotos.map((_, idx) => (
+                  <span 
+                    key={idx} 
+                    style={{
+                      ...S.sliderDot, 
+                      background: idx === photoIndex ? GREEN : '#d1d5db'
+                    }}
+                    onClick={() => setPhotoIndex(idx)}
+                  />
+                ))}
+              </div>
+            )}
+            <div style={{ textAlign: 'center', marginTop: 8, color: '#6b7280', fontSize: 12, fontWeight: 600 }}>
+              {photoIndex + 1} / {selectedPhotos.length}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ReportCard({ report }) {
+function ReportCard({ report, onPhotoClick }) {
   const PROGRESS_STAGES = [
     { value: 20,  label: '20% – Site Inspection' },
     { value: 40,  label: '40% – Surface Preparation' },
@@ -183,7 +228,16 @@ function ReportCard({ report }) {
         </span>
       </div>
       <h3 style={S.cardTitle}>{report.title}</h3>
-      <p style={S.cardSub}>📍 {report.location}</p>
+      <p style={S.cardSub}>
+        <a 
+          href={`https://www.google.com/maps/search/?api=1&query=${report.latitude},${report.longitude}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: 'none', color: '#4b5563', fontWeight: 500 }}
+        >
+          📍 {report.location} <span style={{ fontSize: 10, color: '#2563eb', marginLeft: 4 }}>(View Map)</span>
+        </a>
+      </p>
       <div
         style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}
       >
@@ -198,6 +252,16 @@ function ReportCard({ report }) {
         <span style={S.metaText}>{report.damageType?.replace("_", " ")}</span>
       </div>
       {report.description && <p style={S.desc}>{report.description}</p>}
+      {report.photoUrls && report.photoUrls.length > 0 && (
+        <div style={{ marginBottom: 12, cursor: 'pointer', position: 'relative', marginTop: 10 }} onClick={() => onPhotoClick(report.photoUrls)}>
+          <img src={report.photoUrls[0]} alt={report.title} style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 8 }} />
+          {report.photoUrls.length > 1 && (
+            <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
+              +{report.photoUrls.length - 1} More Photo{report.photoUrls.length > 2 ? 's' : ''}
+            </div>
+          )}
+        </div>
+      )}
       {report.status === "IN_PROGRESS" && (
         <div style={{ marginTop: 10 }}>
           {/* Milestone stepper */}
@@ -229,14 +293,14 @@ function ReportCard({ report }) {
               );
             })}
           </div>
-          <div style={S.progressBg}>
-            <div style={{
-              ...S.progressFill,
-              background: 'linear-gradient(90deg,#3b82f6,#1d4ed8)',
-              width: `${report.recoveryProgress || 0}%`,
-            }} />
-          </div>
-          <span style={S.progressLabel}>{getStageLabel(report.recoveryProgress || 0)}</span>
+          {/*<div style={S.progressBg}>*/}
+          {/*  <div style={{*/}
+          {/*    ...S.progressFill,*/}
+          {/*    background: 'linear-gradient(90deg,#3b82f6,#1d4ed8)',*/}
+          {/*    width: `${report.recoveryProgress || 0}%`,*/}
+          {/*  }} />*/}
+          {/*</div>*/}
+          {/*<span style={S.progressLabel}>{getStageLabel(report.recoveryProgress || 0)}</span>*/}
         </div>
       )}
     </div>
@@ -440,4 +504,47 @@ const S = {
   },
   wlLabel: { fontSize: 11, color: "#9ca3af" },
   wlVal: { fontSize: 15, fontWeight: 700, color: "#111" },
+  
+  // Modal & Slider Styles
+  modalOverlay: {
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+    background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center',
+    justifyContent: 'center', zIndex: 1000, padding: 16
+  },
+  modalContent: {
+    background: 'white', borderRadius: 12, padding: '30px 20px 20px', maxWidth: 600,
+    width: '100%', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+  },
+  modalClose: {
+    position: 'absolute', top: 12, right: 12, background: '#f3f4f6',
+    border: 'none', borderRadius: '50%', width: 28, height: 28,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', fontWeight: 'bold', color: '#4b5563', zIndex: 10
+  },
+  sliderContainer: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    position: 'relative', minHeight: 250, background: '#f3f4f6',
+    borderRadius: 8, overflow: 'hidden', marginTop: 10
+  },
+  sliderImg: {
+    maxWidth: '100%', maxHeight: 400, objectFit: 'contain'
+  },
+  navBtnLeft: {
+    position: 'absolute', left: 10, background: 'rgba(255,255,255,0.85)',
+    border: 'none', borderRadius: '50%', width: 36, height: 36,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.15)', fontWeight: 'bold', zIndex: 10
+  },
+  navBtnRight: {
+    position: 'absolute', right: 10, background: 'rgba(255,255,255,0.85)',
+    border: 'none', borderRadius: '50%', width: 36, height: 36,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.15)', fontWeight: 'bold', zIndex: 10
+  },
+  sliderDots: {
+    display: 'flex', justifyContent: 'center', gap: 6, marginTop: 12
+  },
+  sliderDot: {
+    width: 8, height: 8, borderRadius: '50%', cursor: 'pointer', transition: 'background 0.2s'
+  }
 };
