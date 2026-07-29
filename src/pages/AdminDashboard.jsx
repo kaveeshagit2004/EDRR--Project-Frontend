@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { getAllReports, updateReportStatus, updateReportProgress, getReportStats } from '../api/api';
+import { getStagesForType, getStageLabel } from '../utils/stages';
 
 const NAV_GA = [
-    { path: '/admin-ga', icon: '📊', label: 'Overview' },
-    { path: '/admin-ga/reports', icon: '📋', label: 'View Reports' },
-    { path: '/admin-ga/final', icon: '📄', label: 'Final Reports' },
-    { path: '/admin-ga/feedback', icon: '💬', label: 'Citizen Feedback' },
-    { path: '/admin-ga/profile', icon: '👤', label: 'Profile' },
+    { path: '/admin-ga', icon: '', label: 'Overview' },
+    { path: '/admin-ga/reports', icon: '', label: 'View Reports' },
+    { path: '/admin-ga/final', icon: '', label: 'Final Reports' },
+    { path: '/admin-ga/feedback', icon: '', label: 'Citizen Feedback' },
+    { path: '/admin-ga/profile', icon: '', label: 'Profile' },
 ];
 
 const NAV_RDA = [
-    { path: '/admin-rda', icon: '📊', label: 'Overview' },
-    { path: '/admin-rda/reports', icon: '📋', label: 'Damage Reports' },
-    { path: '/admin-rda/recovery', icon: '🔧', label: 'Recovery Progress' },
-    { path: '/admin-rda/final', icon: '📄', label: 'Final Reports' },
-    { path: '/admin-rda/profile', icon: '👤', label: 'Profile' },
+    { path: '/admin-rda', icon: '', label: 'Overview' },
+    { path: '/admin-rda/reports', icon: '', label: 'Damage Reports' },
+    { path: '/admin-rda/recovery', icon: '', label: 'Recovery Progress' },
+    { path: '/admin-rda/final', icon: '', label: 'Final Reports' },
+    { path: '/admin-rda/profile', icon: '', label: 'Profile' },
 ];
 
 export default function AdminDashboard({ type = 'GA' }) {
@@ -45,18 +46,7 @@ export default function AdminDashboard({ type = 'GA' }) {
         catch { alert('Failed to update'); }
     };
 
-    const PROGRESS_STAGES = [
-        { value: 20,  label: '20% – Site Inspection' },
-        { value: 40,  label: '40% – Surface Preparation' },
-        { value: 60,  label: '60% – Road Repair' },
-        { value: 80,  label: '80% – Quality Check' },
-        { value: 100, label: '100% – Completed' },
-    ];
 
-    const getStageLabel = (pct) => {
-        const stage = PROGRESS_STAGES.find(s => s.value === pct);
-        return stage ? stage.label : `${pct || 0}%`;
-    };
 
     const handleProgress = async (id, value) => {
         try { await updateReportProgress(id, value); reload(); }
@@ -90,10 +80,10 @@ export default function AdminDashboard({ type = 'GA' }) {
 
                         <div style={S.statsGrid}>
                             {[
-                                { label:'Total Reports', val:stats.total||0, icon:'📋', color:'#2d5a27', sub:'All time' },
-                                { label:'Pending', val:stats.pending||0, icon:'⏳', color:'#d97706', sub:'Awaiting action' },
-                                { label:'In Progress', val:stats.inProgress||0, icon:'🔧', color:'#2563eb', sub:'Being reported' },
-                                { label:'Resolved', val:stats.resolved||0, icon:'✅', color:'#059669', sub:'Fixed this month' },
+                                { label:'Total Reports', val:stats.total||0, icon:'', color:'#2d5a27', sub:'All time' },
+                                { label:'Pending', val:stats.pending||0, icon:'', color:'#d97706', sub:'Awaiting action' },
+                                { label:'In Progress', val:stats.inProgress||0, icon:'', color:'#2563eb', sub:'Being reported' },
+                                { label:'Resolved', val:stats.resolved||0, icon:'', color:'#059669', sub:'Fixed this month' },
                             ].map(s=>(
                                 <div key={s.label} style={S.statCard}>
                                     <div style={{fontSize:24,marginBottom:6}}>{s.icon}</div>
@@ -186,7 +176,7 @@ export default function AdminDashboard({ type = 'GA' }) {
                                             {/* Stage buttons row — acts as both selector and stepper */}
                                             <div style={{fontSize:11,color:'#9ca3af',marginBottom:6,fontWeight:500}}>Recovery Progress</div>
                                             <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
-                                                {PROGRESS_STAGES.map((stage, i) => {
+                                                {getStagesForType(r.damageType).map((stage, i) => {
                                                     const prog = r.recoveryProgress || 0;
                                                     const isCurrent = prog === stage.value;
                                                     const isDone    = prog > stage.value;

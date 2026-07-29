@@ -19,9 +19,19 @@ api.interceptors.request.use((config) => {
 // ── AUTH ──────────────────────────────────────────────
 export const registerUser = (data) => api.post('/auth/register', data);
 export const loginUser    = (data) => api.post('/auth/login', data);
+export const forgotPassword = (data) => api.post('/auth/forgot-password', data);
 
 // ── DAMAGE REPORTS ────────────────────────────────────
-export const getAllReports       = ()           => api.get('/reports');
+export const getAllReports       = ()           => api.get('/reports').then(res => {
+    if (res.data && Array.isArray(res.data)) {
+        res.data.sort((a, b) => {
+            const dateA = a.reportedAt ? new Date(a.reportedAt) : 0;
+            const dateB = b.reportedAt ? new Date(b.reportedAt) : 0;
+            return dateB - dateA;
+        });
+    }
+    return res;
+});
 export const createReport        = (data)       => {
     if (data instanceof FormData) {
         return api.post('/reports', data, {

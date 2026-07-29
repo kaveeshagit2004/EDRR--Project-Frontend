@@ -3,11 +3,11 @@ import Sidebar from '../components/Sidebar';
 import { getAllWaterLevels, updateWaterLevel } from '../api/api';
 
 const NAV = [
-    { path: '/water', icon: '🏠', label: 'Home' },
-    { path: '/water/levels', icon: '💧', label: 'Water Monitor' },
-    { path: '/water/map', icon: '🗺️', label: 'Map' },
-    { path: '/water/alerts', icon: '🔔', label: 'Alerts' },
-    { path: '/water/profile', icon: '👤', label: 'Profile' },
+    { path: '/water', icon: '', label: 'Home' },
+    { path: '/water/levels', icon: '', label: 'Water Monitor' },
+    { path: '/water/map', icon: '', label: 'Map' },
+    { path: '/water/alerts', icon: '', label: 'Alerts' },
+    { path: '/water/profile', icon: '', label: 'Profile' },
 ];
 
 export default function WaterLevelPage() {
@@ -109,7 +109,7 @@ export default function WaterLevelPage() {
                                     <button
                                         style={{padding:'7px 16px',background:'#1a3a4a',color:'white',border:'none',borderRadius:7,fontSize:13,fontWeight:600,cursor:'pointer'}}
                                         onClick={() => handleUpdate(wl)}>
-                                        💧 Update Level
+                                         Update Level
                                     </button>
                                 </div>
                                 {wl.officerNotes && (

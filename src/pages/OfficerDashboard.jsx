@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import { getAllReports, createReport, updateReportStatus } from '../api/api';
+import { getStagesForType, getStageLabel } from '../utils/stages';
 
 const NAV = [
-    { path: '/officer', icon: '🏠', label: 'Home' },
-    { path: '/officer/map', icon: '🗺️', label: 'Map' },
-    { path: '/officer/alerts', icon: '🔔', label: 'Alerts' },
-    { path: '/officer/contact', icon: '📞', label: 'Contact' },
-    { path: '/officer/feedback', icon: '💬', label: 'Feedback' },
-    { path: '/officer/about', icon: 'ℹ️', label: 'About Us' },
-    { path: '/officer/profile', icon: '👤', label: 'Profile' },
-    { path: '/officer/report', icon: '📝', label: 'Report Damage' },
+    { path: '/officer', icon: '', label: 'Home' },
+    { path: '/officer/map', icon: '', label: 'Map' },
+    { path: '/officer/alerts', icon: '', label: 'Alerts' },
+    { path: '/officer/contact', icon: '', label: 'Contact' },
+    { path: '/officer/feedback', icon: '', label: 'Feedback' },
+    { path: '/officer/about', icon: '', label: 'About Us' },
+    { path: '/officer/profile', icon: '', label: 'Profile' },
+    { path: '/officer/report', icon: '', label: 'Report Damage' },
 ];
 
 export default function OfficerDashboard() {
@@ -231,17 +232,7 @@ export default function OfficerDashboard() {
 
     if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}>Loading...</div>;
 
-    const PROGRESS_STAGES = [
-        { value: 20,  label: '20% – Site Inspection' },
-        { value: 40,  label: '40% – Surface Preparation' },
-        { value: 60,  label: '60% – Road Repair' },
-        { value: 80,  label: '80% – Quality Check' },
-        { value: 100, label: '100% – Completed' },
-    ];
-    const getStageLabel = (pct) => {
-        const stage = PROGRESS_STAGES.find(s => s.value === pct);
-        return stage ? stage.label : `${pct || 0}%`;
-    };
+
 
     const sevColor = { CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#d97706', LOW:'#059669' };
     const statColor = { PENDING:'#d97706', IN_PROGRESS:'#2563eb', RESOLVED:'#059669', REJECTED:'#dc2626' };
@@ -254,7 +245,7 @@ export default function OfficerDashboard() {
             <div style={{ padding:16, maxWidth:700, margin:'0 auto' }}>
 
                 <div style={S.tabBar}>
-                    {[['reports','📋 My Reports'],['new','➕ Report Damage']].map(([k,l])=>(
+                    {[['reports',' My Reports'],['new',' Report Damage']].map(([k,l])=>(
                         <button key={k} style={tab===k?S.tabActive:S.tab} onClick={()=>setTab(k)}>{l}</button>
                     ))}
                 </div>
@@ -265,8 +256,10 @@ export default function OfficerDashboard() {
                         <h2 style={S.title}>Damage Reports ({reports.length})</h2>
                         {reports.length === 0
                             ? <div style={{textAlign:'center',color:'#9ca3af',padding:60}}>No reports yet.</div>
-                            : reports.map(r => (
-                                <div key={r.id} style={S.card}>
+                            : reports.map(r => {
+                                const stages = getStagesForType(r.damageType);
+                                return (
+                                    <div key={r.id} style={S.card}>
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
                                         <span style={{fontSize:11,color:'#9ca3af',fontFamily:'monospace'}}>{r.reportNumber}</span>
                                         <span style={{...S.badge,background:statColor[r.status]||'#6b7280'}}>{r.status?.replace('_',' ')}</span>
@@ -282,10 +275,11 @@ export default function OfficerDashboard() {
                                             📍 {r.location} <span style={{ fontSize: 10, color: '#2563eb', marginLeft: 4 }}>(View Map)</span>
                                         </a>
                                     </p>
-                                    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
-                                        <span style={{...S.badge,background:sevColor[r.severity]||'#6b7280'}}>{r.severity}</span>
-                                        <span style={{fontSize:12,color:'#6b7280',background:'#f3f4f6',padding:'2px 8px',borderRadius:4}}>{r.damageType?.replace('_',' ')}</span>
-                                    </div>
+                                     <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8,alignItems:'center'}}>
+                                         <span style={{...S.badge,background:sevColor[r.severity]||'#6b7280'}}>{r.severity}</span>
+                                         <span style={{fontSize:12,color:'#6b7280',background:'#f3f4f6',padding:'2px 8px',borderRadius:4}}>{r.damageType?.replace('_',' ')}</span>
+                                         {r.reporterName && <span style={{fontSize:12,color:'#6b7280',marginLeft:4}}>By: {r.reporterName}</span>}
+                                     </div>
                                     {r.description && <p style={{fontSize:13,color:'#555',margin:'0 0 8px'}}>{r.description}</p>}
                                     {r.photoUrls && r.photoUrls.length > 0 && (
                                         <div style={{ marginBottom: 12, cursor: 'pointer', position: 'relative' }} onClick={() => { setSelectedPhotos(r.photoUrls); setPhotoIndex(0); }}>
@@ -306,10 +300,10 @@ export default function OfficerDashboard() {
                                         <div style={{marginTop:8,marginBottom:4}}>
                                             {/* Milestone stepper */}
                                             <div style={{display:'flex',alignItems:'center',gap:0,marginBottom:6}}>
-                                                {PROGRESS_STAGES.map((stage, i) => {
+                                                {stages.map((stage, i) => {
                                                     const prog = r.recoveryProgress || 0;
                                                     const done = prog >= stage.value;
-                                                    const active = prog < stage.value && (i === 0 || prog >= PROGRESS_STAGES[i-1].value);
+                                                    const active = prog < stage.value && (i === 0 || prog >= stages[i-1].value);
                                                     return (
                                                         <React.Fragment key={stage.value}>
                                                             <div style={{display:'flex',flexDirection:'column',alignItems:'center',flex:'0 0 auto'}}>
@@ -326,8 +320,8 @@ export default function OfficerDashboard() {
                                                                     {stage.label.split('– ')[1]}
                                                                 </span>
                                                             </div>
-                                                            {i < PROGRESS_STAGES.length - 1 && (
-                                                                <div style={{flex:1,height:3,background: prog >= PROGRESS_STAGES[i+1].value ? '#2563eb' : prog >= stage.value ? '#93c5fd' : '#e5e7eb',marginBottom:12,transition:'background 0.3s'}} />
+                                                            {i < stages.length - 1 && (
+                                                                <div style={{flex:1,height:3,background: prog >= stages[i+1].value ? '#2563eb' : prog >= stage.value ? '#93c5fd' : '#e5e7eb',marginBottom:12,transition:'background 0.3s'}} />
                                                             )}
                                                         </React.Fragment>
                                                     );
@@ -340,7 +334,8 @@ export default function OfficerDashboard() {
                                         </div>
                                     )}
                                 </div>
-                            ))
+                                );
+                            })
                         }
                     </div>
                 )}

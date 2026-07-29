@@ -3,32 +3,32 @@ import Sidebar from '../components/Sidebar';
 import { getOfficers, addOfficer, deleteOfficer, } from '../api/api';
 
 const NAV_GA = [
-    { path: '/admin-ga', icon: '📊', label: 'Overview' },
-    { path: '/admin-ga/reports', icon: '📋', label: 'View Reports' },
-    { path: '/admin-ga/final', icon: '📄', label: 'Final Reports' },
-    { path: '/admin-ga/feedback', icon: '💬', label: 'Citizen Feedback' },
-    { path: '/admin/officers', icon: '👥', label: 'Manage Officers' },
-    { path: '/admin-ga/profile', icon: '👤', label: 'Profile' },
+    { path: '/admin-ga', icon: '', label: 'Overview' },
+    { path: '/admin-ga/reports', icon: '', label: 'View Reports' },
+    { path: '/admin-ga/final', icon: '', label: 'Final Reports' },
+    { path: '/admin-ga/feedback', icon: '', label: 'Citizen Feedback' },
+    { path: '/admin/officers', icon: '', label: 'Manage Officers' },
+    { path: '/admin-ga/profile', icon: '', label: 'Profile' },
 ];
 
 const NAV_RDA = [
-    { path: '/admin-rda', icon: '📊', label: 'Overview' },
-    { path: '/admin-rda/reports', icon: '📋', label: 'Damage Reports' },
-    { path: '/admin-rda/recovery', icon: '🔧', label: 'Recovery Progress' },
-    { path: '/admin-rda/final', icon: '📄', label: 'Final Reports' },
-    { path: '/admin/officers', icon: '👥', label: 'Manage Officers' },
-    { path: '/admin-rda/profile', icon: '👤', label: 'Profile' },
+    { path: '/admin-rda', icon: '', label: 'Overview' },
+    { path: '/admin-rda/reports', icon: '', label: 'Damage Reports' },
+    { path: '/admin-rda/recovery', icon: '', label: 'Recovery Progress' },
+    { path: '/admin-rda/final', icon: '', label: 'Final Reports' },
+    { path: '/admin/officers', icon: '', label: 'Manage Officers' },
+    { path: '/admin-rda/profile', icon: '', label: 'Profile' },
 ];
 
 const NAV_CITIZEN = [
-  { path: "/", icon: "🏠", label: "Home" },
-  { path: "/citizen/map", icon: "🗺️", label: "Map" },
-  { path: "/citizen/alerts", icon: "🔔", label: "Alerts" },
-  { path: "/citizen/contact", icon: "📞", label: "Contact" },
-  { path: "/citizen/feedback", icon: "💬", label: "Feedback" },
-  { path: "/citizen/about", icon: "ℹ️", label: "About Us" },
-  { path: "/citizen/profile", icon: "👤", label: "Profile" },
-  { path: "/citizen/water", icon: "💧", label: "Water Levels" },
+  { path: "/", icon: "", label: "Home" },
+  { path: "/citizen/map", icon: "", label: "Map" },
+  { path: "/citizen/alerts", icon: "", label: "Alerts" },
+  { path: "/citizen/contact", icon: "", label: "Contact" },
+  { path: "/citizen/feedback", icon: "", label: "Feedback" },
+  { path: "/citizen/about", icon: "", label: "About Us" },
+  { path: "/citizen/profile", icon: "", label: "Profile" },
+  { path: "/citizen/water", icon: "", label: "Water Levels" },
 ];
 
 export default function OfficerManagementPage() {
@@ -193,7 +193,7 @@ export default function OfficerManagementPage() {
                         style={showForm ? S.btnCancel : S.btnPrimary} 
                         onClick={() => { setShowForm(!showForm); setError(''); setSuccess(''); }}
                     >
-                        {showForm ? '✕ Close Form' : '➕ Register New Officer'}
+                        {showForm ? '✕ Close Form' : ' Register New Officer'}
                     </button>
                 </div>
 
@@ -315,32 +315,32 @@ export default function OfficerManagementPage() {
                 {/* Stats summary bar */}
                 <div style={S.statsGrid}>
                     <div style={S.statCard}>
-                        <div style={{ fontSize: 24, marginBottom: 4 }}>👥</div>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}></div>
                         <div style={{ fontSize: 24, fontWeight: 800, color: '#1e293b' }}>{totalCount}</div>
                         <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Total Officers</div>
                     </div>
                     <div style={S.statCard}>
-                        <div style={{ fontSize: 24, marginBottom: 4 }}>📋</div>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}></div>
                         <div style={{ fontSize: 24, fontWeight: 800, color: '#2563eb' }}>{ruralCount}</div>
                         <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Rural Division</div>
                     </div>
                     <div style={S.statCard}>
-                        <div style={{ fontSize: 24, marginBottom: 4 }}>💧</div>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}></div>
                         <div style={{ fontSize: 24, fontWeight: 800, color: '#0891b2' }}>{irrigationCount}</div>
                         <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Irrigation</div>
                     </div>
                     <div style={S.statCard}>
-                        <div style={{ fontSize: 24, marginBottom: 4 }}>🏛️</div>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}></div>
                         <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed' }}>{gaCount}</div>
                         <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Gov Agent (GA)</div>
                     </div>
                     <div style={S.statCard}>
-                        <div style={{ fontSize: 24, marginBottom: 4 }}>🛡️</div>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}></div>
                         <div style={{ fontSize: 24, fontWeight: 800, color: '#ea580c' }}>{rdaCount}</div>
                         <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>RDA/DMC Admin</div>
                     </div>
                     <div style={S.statCard}>
-                        <div style={{ fontSize: 24, marginBottom: 4 }}>🟢</div>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}></div>
                         <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a' }}>{activeCount}</div>
                         <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Active Accounts</div>
                     </div>
