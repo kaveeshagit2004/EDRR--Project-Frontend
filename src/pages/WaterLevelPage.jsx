@@ -44,11 +44,11 @@ export default function WaterLevelPage() {
     if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}>Loading...</div>;
 
     return (
-        <div style={{ minHeight:'100vh', background:'#f0f2f5', fontFamily:'inherit' }}>
+        <div style={{ minHeight:'100vh', background:'linear-gradient(135deg, #06402B 0%, #084c33 50%, #15794a 85%, #80EF80 100%)', backgroundAttachment:'fixed', fontFamily:'inherit' }}>
             <Sidebar role="Irrigation Officer" links={NAV} />
             <div style={{ padding:16, maxWidth:700, margin:'0 auto' }}>
-                <h2 style={{fontSize:20,fontWeight:700,margin:'0 0 4px',color:'#111'}}>Water Level Management</h2>
-                <p style={{fontSize:13,color:'#9ca3af',marginBottom:16}}>Monitor and Update Levels</p>
+                <h2 style={{fontSize:20,fontWeight:700,margin:'0 0 4px',color:'#fff',textShadow:'0 2px 4px rgba(0,0,0,0.5)'}}>Water Level Management</h2>
+                <p style={{fontSize:13,color:'rgba(255, 255, 255, 0.7)',marginBottom:16}}>Monitor and Update Levels</p>
 
                 {msg && (
                     <div style={{background:msg.includes('✅')?'#dcfce7':'#fee2e2',color:msg.includes('✅')?'#166534':'#991b1b',padding:'10px 14px',borderRadius:8,marginBottom:14,fontSize:13}}>
@@ -70,7 +70,7 @@ export default function WaterLevelPage() {
                     ))}
                 </div>
 
-                <h3 style={{fontSize:15,fontWeight:700,margin:'0 0 12px'}}>Current Water Levels (Live)</h3>
+                <h3 style={{fontSize:15,fontWeight:700,margin:'0 0 12px',color:'#fff',textShadow:'0 2px 4px rgba(0,0,0,0.5)'}}>Current Water Levels (Live)</h3>
 
                 {levels.length === 0 ? (
                     <div style={{textAlign:'center',color:'#9ca3af',padding:60,background:'white',borderRadius:10}}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
-import { getAllReports, createReport, updateReportStatus } from '../api/api';
+import { getAllReports, createReport } from '../api/api';
 import { getStagesForType, getStageLabel } from '../utils/stages';
 
 const NAV = [
@@ -226,10 +226,6 @@ export default function OfficerDashboard() {
         } catch { setSubmitMsg('error'); }
     };
 
-    const handleStatusUpdate = async (id, status) => {
-        try { await updateReportStatus(id, status, ''); reload(); } catch { alert('Update failed'); }
-    };
-
     if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}>Loading...</div>;
 
 
@@ -240,7 +236,7 @@ export default function OfficerDashboard() {
     const roleLabel = user.role === 'IRRIGATION_OFFICER' ? 'Irrigation Officer' : 'Rural Division Officer';
 
     return (
-        <div style={{ minHeight:'100vh', background:'#f0f2f5', fontFamily:'inherit' }}>
+        <div style={{ minHeight:'100vh', background:'linear-gradient(135deg, #06402B 0%, #084c33 50%, #15794a 85%, #80EF80 100%)', backgroundAttachment:'fixed', fontFamily:'inherit' }}>
             <Sidebar role={roleLabel} links={NAV} />
             <div style={{ padding:16, maxWidth:700, margin:'0 auto' }}>
 
@@ -291,11 +287,7 @@ export default function OfficerDashboard() {
                                             )}
                                         </div>
                                     )}
-                                    {r.status === 'PENDING' && (
-                                        <button style={{...S.btn, background:'#2563eb'}} onClick={() => handleStatusUpdate(r.id, 'IN_PROGRESS')}>
-                                            Mark In Progress
-                                        </button>
-                                    )}
+
                                     {r.status === 'IN_PROGRESS' && (
                                         <div style={{marginTop:8,marginBottom:4}}>
                                             {/* Milestone stepper */}
@@ -484,7 +476,7 @@ const S = {
     tabBar: {display:'flex',background:'white',borderRadius:10,padding:4,gap:4,marginBottom:20,boxShadow:'0 1px 4px rgba(0,0,0,0.07)'},
     tab: {flex:1,padding:'10px',border:'none',background:'none',color:'#6b7280',fontSize:13,borderRadius:8},
     tabActive: {flex:1,padding:'10px',border:'none',background:'#2d5a27',color:'white',fontSize:13,fontWeight:700,borderRadius:8},
-    title: {fontSize:20,fontWeight:700,margin:'0 0 16px',color:'#111'},
+    title: {fontSize:20,fontWeight:700,margin:'0 0 16px',color:'#fff',textShadow:'0 2px 4px rgba(0,0,0,0.5)'},
     card: {background:'white',borderRadius:10,padding:16,marginBottom:10,boxShadow:'0 1px 4px rgba(0,0,0,0.07)'},
     badge: {fontSize:11,color:'white',padding:'3px 9px',borderRadius:20,fontWeight:600},
     btn: {padding:'7px 16px',border:'none',borderRadius:7,color:'white',fontSize:13,fontWeight:600,cursor:'pointer'},

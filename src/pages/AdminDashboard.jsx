@@ -60,12 +60,12 @@ export default function AdminDashboard({ type = 'GA' }) {
     if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh'}}>Loading...</div>;
 
     return (
-        <div style={{ minHeight:'100vh', background:'#f0f2f5', fontFamily:'inherit' }}>
+        <div style={{ minHeight:'100vh', background:'linear-gradient(135deg, #06402B 0%, #084c33 50%, #15794a 85%, #80EF80 100%)', backgroundAttachment:'fixed', fontFamily:'inherit' }}>
             <Sidebar role={isGA ? 'GA Admin' : 'RDA/DMC Admin'} links={isGA ? NAV_GA : NAV_RDA} />
             <div style={{ padding:16, maxWidth:900, margin:'0 auto' }}>
 
                 <div style={S.tabBar}>
-                    {[['overview','📊 Overview'],['reports','📋 Reports']].map(([k,l])=>(
+                    {[['overview',' Overview'],['reports','Reports']].map(([k,l])=>(
                         <button key={k} style={tab===k?S.tabActive:S.tab} onClick={()=>setTab(k)}>{l}</button>
                     ))}
                 </div>
@@ -75,7 +75,7 @@ export default function AdminDashboard({ type = 'GA' }) {
                     <div>
                         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
                             <h2 style={S.title}>Dashboard Overview</h2>
-                            <span style={{fontSize:12,color:'#9ca3af'}}>{isGA ? 'Government Agent Portal' : 'RDA/DMC Portal'}</span>
+                            <span style={{fontSize:12,color:'rgba(255, 255, 255, 0.7)'}}>{isGA ? 'Government Agent Portal' : 'RDA/DMC Portal'}</span>
                         </div>
 
                         <div style={S.statsGrid}>
@@ -284,8 +284,8 @@ export default function AdminDashboard({ type = 'GA' }) {
 const S = {
     tabBar: {display:'flex',background:'white',borderRadius:10,padding:4,gap:4,marginBottom:20,boxShadow:'0 1px 4px rgba(0,0,0,0.07)'},
     tab: {flex:1,padding:'10px',border:'none',background:'none',color:'#6b7280',fontSize:13,borderRadius:8},
-    tabActive: {flex:1,padding:'10px',border:'none',background:'#1a2c4a',color:'white',fontSize:13,fontWeight:700,borderRadius:8},
-    title: {fontSize:20,fontWeight:700,margin:0,color:'#111'},
+    tabActive: {flex:1,padding:'10px',border:'none',background:'#2d5a27',color:'white',fontSize:13,fontWeight:700,borderRadius:8},
+    title: {fontSize:20,fontWeight:700,margin:0,color:'#fff',textShadow:'0 2px 4px rgba(0,0,0,0.5)'},
     statsGrid: {display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:20},
     statCard: {background:'white',borderRadius:10,padding:16,boxShadow:'0 1px 4px rgba(0,0,0,0.07)',textAlign:'center'},
     panel: {background:'white',borderRadius:10,padding:18,boxShadow:'0 1px 4px rgba(0,0,0,0.07)'},

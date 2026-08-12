@@ -126,7 +126,7 @@ export default function OfficerManagementPage() {
     };
 
     const handleDeleteOfficer = async (id, name) => {
-        if (!window.confirm(`Are you sure you want to delete officer "${name}"? This action cannot be undone.`)) {
+        if (!window.confirm(`Are you sure you want to delete officer "${name}"? `)) {
             return;
         }
 
@@ -177,7 +177,7 @@ export default function OfficerManagementPage() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'inherit' }}>
+        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #06402B 0%, #084c33 50%, #15794a 85%, #80EF80 100%)', backgroundAttachment: 'fixed', fontFamily: 'inherit' }}>
             <Sidebar role={sidebarRole} links={links} />
             
             <div style={{ padding: 16, maxWidth: 1000, margin: '0 auto' }}>
@@ -185,7 +185,7 @@ export default function OfficerManagementPage() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                     <div>
                         <h2 style={S.title}>Officer Registry</h2>
-                        <p style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>
+                        <p style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.7)', marginTop: 2 }}>
                             Manage administrative access and view status for Division &amp; Irrigation officers.
                         </p>
                     </div>
@@ -256,7 +256,7 @@ export default function OfficerManagementPage() {
                                     />
                                 </div>
                                 <div style={S.formGroup}>
-                                    <label style={S.label}>Initial Password *</label>
+                                    <label style={S.label}>Password *</label>
                                     <input 
                                         type="password" 
                                         name="password" 
@@ -446,9 +446,43 @@ export default function OfficerManagementPage() {
 }
 
 const S = {
-    title: { fontSize: 22, fontWeight: 800, margin: 0, color: '#1e293b' },
-    btnPrimary: { padding: '8px 16px', background: '#2d5a27', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'background 0.2s' },
-    btnCancel: { padding: '8px 16px', background: '#475569', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
+    title: { fontSize: 22, fontWeight: 800, margin: 0, color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)' },
+    btnPrimary: {
+        padding: '10px 20px',
+        background: 'rgba(255, 255, 255, 0.15)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        color: '#ffffff',
+        border: '1px solid rgba(255, 255, 255, 0.35)',
+        borderRadius: '30px',
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+        transition: 'all 0.3s ease',
+    },
+    btnCancel: {
+        padding: '10px 20px',
+        background: 'rgba(239, 68, 68, 0.25)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        color: '#fecaca',
+        border: '1px solid rgba(239, 68, 68, 0.45)',
+        borderRadius: '30px',
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        boxShadow: '0 8px 32px 0 rgba(239, 68, 68, 0.15)',
+        textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+        transition: 'all 0.3s ease',
+    },
     errorBox: { background: '#fef2f2', borderLeft: '4px solid #ef4444', color: '#b91c1c', padding: 12, borderRadius: 6, marginBottom: 16, fontSize: 13, fontWeight: 500 },
     successBox: { background: '#f0fdf4', borderLeft: '4px solid #22c55e', color: '#15803d', padding: 12, borderRadius: 6, marginBottom: 16, fontSize: 13, fontWeight: 500 },
     
@@ -465,8 +499,33 @@ const S = {
     label: { fontSize: 12, fontWeight: 600, color: '#475569' },
     input: { padding: '9px 12px', border: '1.5px solid #cbd5e1', borderRadius: 8, fontSize: 13, outline: 'none', background: '#f8fafc', transition: 'border-color 0.2s' },
     select: { padding: '9px 12px', border: '1.5px solid #cbd5e1', borderRadius: 8, fontSize: 13, background: 'white', cursor: 'pointer', outline: 'none' },
-    btnSubmit: { padding: '9px 18px', background: '#2d5a27', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-    btnCancelInline: { padding: '9px 18px', background: 'transparent', color: '#475569', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+    btnSubmit: {
+        padding: '10px 22px',
+        background: 'rgba(74, 222, 128, 0.25)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        color: '#06402B',
+        border: '1px solid rgba(74, 222, 128, 0.45)',
+        borderRadius: '30px',
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+        boxShadow: '0 8px 32px 0 rgba(74, 222, 128, 0.15)',
+        transition: 'all 0.3s ease',
+    },
+    btnCancelInline: {
+        padding: '10px 22px',
+        background: 'rgba(255, 255, 255, 0.08)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        color: '#cbd5e1',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        borderRadius: '30px',
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: 'pointer',
+        transition: 'all 0.3s ease',
+    },
     
     // Filter
     filterRow: { display: 'flex', gap: 12, marginBottom: 16 },
