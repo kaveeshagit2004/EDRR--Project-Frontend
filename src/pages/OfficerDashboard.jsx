@@ -1,32 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
-import { getAllReports, createReport } from '../api/api';
-import { getStagesForType, getStageLabel } from '../utils/stages';
+import { getAllReports, createReport, deleteReport } from '../api/api';
+import { canDeleteReports } from '../utils/reportPermissions';
+import RecoveryProgressBar from '../components/RecoveryProgressBar';
+import AlertAnnouncementBanner from '../components/AlertAnnouncementBanner';
 
 const NAV = [
-    { path: '/officer', icon: '', label: 'Home' },
+    { path: '/officer', icon: '', label: 'Overview' },
     { path: '/officer/map', icon: '', label: 'Map' },
     { path: '/officer/alerts', icon: '', label: 'Alerts' },
     { path: '/officer/contact', icon: '', label: 'Contact' },
-    { path: '/officer/feedback', icon: '', label: 'Feedback' },
-    { path: '/officer/about', icon: '', label: 'About Us' },
+    { path: '/officer/report-damage', icon: '', label: 'Report Damage' },
+    { path: '/officer/public-reports', icon: '', label: 'Public Reports' },
     { path: '/officer/profile', icon: '', label: 'Profile' },
-    { path: '/officer/report', icon: '', label: 'Report Damage' },
 ];
 
-export default function OfficerDashboard() {
-    const [tab, setTab] = useState('reports');
+export default function OfficerDashboard({ initialTab = 'reports' }) {
+    const [tab, setTab] = useState(initialTab);
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitMsg, setSubmitMsg] = useState('');
     const [selectedPhotos, setSelectedPhotos] = useState(null);
     const [photoIndex, setPhotoIndex] = useState(0);
     const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const currentUserId = user.id || user._id || '';
+    const currentUserName = user.fullName || user.name || '';
 
     const [form, setForm] = useState({
         title:'', damageType:'FLOOD', location:'', severity:'MEDIUM',
         description:'', affectedArea:'', latitude:'', longitude:'',
-        reporterName: user.fullName || '', reportedBy: user.id || '',
+        reporterName: currentUserName, reportedBy: currentUserId,
     });
     const [files, setFiles] = useState([]);
     const mapRef = React.useRef(null);
@@ -43,6 +46,34 @@ export default function OfficerDashboard() {
     }, []);
 
     const reload = () => getAllReports().then(r => setReports(r.data)).catch(console.error);
+
+    // Only damage reports uploaded by this officer are visible in their overview
+    const isMyReport = (r) => {
+        if (!r) return false;
+        // Primary check: match officer's unique ID
+        if (currentUserId && r.reportedBy) {
+            return String(r.reportedBy) === String(currentUserId);
+        }
+        // Match by officer's email if stored as reportedBy
+        if (user.email && r.reportedBy) {
+            return String(r.reportedBy).toLowerCase() === String(user.email).toLowerCase();
+        }
+        // Fallback for older reports without reportedBy
+        if (!r.reportedBy && currentUserName && r.reporterName) {
+            return String(r.reporterName).trim().toLowerCase() === String(currentUserName).trim().toLowerCase();
+        }
+        return false;
+    };
+
+    const myReports = (reports || []).filter(isMyReport);
+
+    // Only Rural Division Officers (and the GA elsewhere) may delete reports.
+    const canDelete = canDeleteReports(user);
+    const handleDelete = async (r) => {
+        if (!window.confirm(`Delete "${r.title}" (${r.reportNumber || `#${r.id}`})?\nIt will be moved to the recycle bin, where the GA can restore or permanently delete it.`)) return;
+        try { await deleteReport(r.id); await reload(); }
+        catch { alert('Failed to delete the report'); }
+    };
 
     useEffect(() => {
         if (tab !== 'new') return;
@@ -208,8 +239,10 @@ export default function OfficerDashboard() {
             formData.append('affectedArea', form.affectedArea);
             formData.append('latitude', parseFloat(form.latitude) || 0);
             formData.append('longitude', parseFloat(form.longitude) || 0);
-            formData.append('reporterName', form.reporterName);
-            formData.append('reportedBy', form.reportedBy);
+            const officerId = currentUserId || form.reportedBy || '';
+            const officerName = currentUserName || form.reporterName || 'Rural Division Officer';
+            formData.append('reporterName', officerName);
+            formData.append('reportedBy', officerId);
 
             if (files && files.length > 0) {
                 files.forEach(file => {
@@ -219,7 +252,11 @@ export default function OfficerDashboard() {
 
             await createReport(formData);
             setSubmitMsg('success');
-            setForm({ ...form, title:'', location:'', description:'', affectedArea:'', latitude:'', longitude:'' });
+            setForm({
+                title:'', damageType:'FLOOD', location:'', severity:'MEDIUM',
+                description:'', affectedArea:'', latitude:'', longitude:'',
+                reporterName: currentUserName, reportedBy: currentUserId,
+            });
             setFiles([]);
             reload();
             setTimeout(() => { setSubmitMsg(''); setTab('reports'); }, 2000);
@@ -230,15 +267,26 @@ export default function OfficerDashboard() {
 
 
 
-    const sevColor = { CRITICAL:'#dc2626', HIGH:'#ea580c', MEDIUM:'#d97706', LOW:'#059669' };
-    const statColor = { PENDING:'#d97706', IN_PROGRESS:'#2563eb', RESOLVED:'#059669', REJECTED:'#dc2626' };
+    const sevColor = { CRITICAL:'#8EB69B', HIGH:'#8EB69B', MEDIUM:'#8EB69B', LOW:'#8EB69B' };
+    const statColor = { IN_PROGRESS:'#8EB69B', RESOLVED:'#8EB69B', REJECTED:'#8EB69B' };
 
     const roleLabel = user.role === 'IRRIGATION_OFFICER' ? 'Irrigation Officer' : 'Rural Division Officer';
 
     return (
-        <div style={{ minHeight:'100vh', background:'linear-gradient(135deg, #06402B 0%, #084c33 50%, #15794a 85%, #80EF80 100%)', backgroundAttachment:'fixed', fontFamily:'inherit' }}>
+        <div className="edrr-dashboard-page">
             <Sidebar role={roleLabel} links={NAV} />
-            <div style={{ padding:16, maxWidth:700, margin:'0 auto' }}>
+            <div className="dashboard-with-sidebar"><div className="edrr-dashboard-content" style={{ maxWidth:1180, margin:'0 auto' }}>
+
+                {/* Main Heading and Sub Heading */}
+                <div style={{ marginBottom: 16 }}>
+                    <h2 style={S.title}>Rural Officer Overview</h2>
+                    <p style={{ fontSize: 13, color: '#235347', margin: '4px 0 0' }}>
+                        Manage and monitor environmental damage reports registered in your division.
+                    </p>
+                </div>
+
+                {/* GA Admin Official Alert Announcement Banner (Displayed under main heading and sub heading) */}
+                <AlertAnnouncementBanner />
 
                 <div style={S.tabBar}>
                     {[['reports',' My Reports'],['new',' Report Damage']].map(([k,l])=>(
@@ -249,85 +297,54 @@ export default function OfficerDashboard() {
                 {/* ── REPORTS LIST ── */}
                 {tab === 'reports' && (
                     <div>
-                        <h2 style={S.title}>Damage Reports ({reports.length})</h2>
-                        {reports.length === 0
-                            ? <div style={{textAlign:'center',color:'#9ca3af',padding:60}}>No reports yet.</div>
-                            : reports.map(r => {
-                                const stages = getStagesForType(r.damageType);
-                                return (
+                        <h2 style={S.title}>Damage Reports ({myReports.length})</h2>
+                        {myReports.length === 0
+                            ? <div style={{textAlign:'center',color:'#235347',padding:60}}>No reports yet.</div>
+                            : myReports.map(r => (
                                     <div key={r.id} style={S.card}>
                                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-                                        <span style={{fontSize:11,color:'#9ca3af',fontFamily:'monospace'}}>{r.reportNumber}</span>
-                                        <span style={{...S.badge,background:statColor[r.status]||'#6b7280'}}>{r.status?.replace('_',' ')}</span>
+                                        <span style={{fontSize:12,color:'#235347',fontFamily:'monospace'}}>{r.reportNumber}</span>
+                                        {r.status !== 'PENDING' && <span style={{...S.badge,background:statColor[r.status]||'#8EB69B'}}>{r.status?.replace('_',' ')}</span>}
                                     </div>
-                                    <h3 style={{fontSize:15,fontWeight:700,margin:'0 0 3px'}}>{r.title}</h3>
-                                    <p style={{fontSize:12,color:'#6b7280',margin:'0 0 8px'}}>
+                                    <h3 style={{fontSize:18,fontWeight:700,margin:'0 0 3px'}}>{r.title}</h3>
+                                    <p style={{fontSize:12,color:'#235347',margin:'0 0 8px'}}>
                                         <a 
                                             href={`https://www.google.com/maps/search/?api=1&query=${r.latitude},${r.longitude}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            style={{ textDecoration: 'none', color: '#4b5563', fontWeight: 500 }}
+                                            style={{ textDecoration: 'none', color: '#235347', fontWeight: 500 }}
                                         >
-                                            📍 {r.location} <span style={{ fontSize: 10, color: '#2563eb', marginLeft: 4 }}>(View Map)</span>
+                                            {r.location} <span style={{ fontSize: 11, color: '#235347', marginLeft: 4 }}>(View Map)</span>
                                         </a>
                                     </p>
                                      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8,alignItems:'center'}}>
-                                         <span style={{...S.badge,background:sevColor[r.severity]||'#6b7280'}}>{r.severity}</span>
-                                         <span style={{fontSize:12,color:'#6b7280',background:'#f3f4f6',padding:'2px 8px',borderRadius:4}}>{r.damageType?.replace('_',' ')}</span>
-                                         {r.reporterName && <span style={{fontSize:12,color:'#6b7280',marginLeft:4}}>By: {r.reporterName}</span>}
+                                         <span style={{...S.badge,background:sevColor[r.severity]||'#8EB69B'}}>{r.severity}</span>
+                                         <span style={{fontSize:12,color:'#235347',background:'#DAF1DE',padding:'2px 8px',borderRadius:4}}>{r.damageType?.replace('_',' ')}</span>
+                                         {r.reporterName && <span style={{fontSize:12,color:'#235347',marginLeft:4}}>Reported by : {r.reporterName}</span>}
                                      </div>
-                                    {r.description && <p style={{fontSize:13,color:'#555',margin:'0 0 8px'}}>{r.description}</p>}
+                                    {r.description && <p style={{fontSize:13,color:'#235347',margin:'0 0 8px'}}>{r.description}</p>}
                                     {r.photoUrls && r.photoUrls.length > 0 && (
                                         <div style={{ marginBottom: 12, cursor: 'pointer', position: 'relative' }} onClick={() => { setSelectedPhotos(r.photoUrls); setPhotoIndex(0); }}>
                                             <img src={r.photoUrls[0]} alt={r.title} style={{ width: '100%', height: 180, objectFit: 'cover', borderRadius: 8 }} />
                                             {r.photoUrls.length > 1 && (
-                                                <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.7)', color: 'white', padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600 }}>
+                                                <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(5,31,32,0.82)', color:'#DAF1DE', padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
                                                     +{r.photoUrls.length - 1} More Photo{r.photoUrls.length > 2 ? 's' : ''}
                                                 </div>
                                             )}
                                         </div>
                                     )}
 
-                                    {r.status === 'IN_PROGRESS' && (
-                                        <div style={{marginTop:8,marginBottom:4}}>
-                                            {/* Milestone stepper */}
-                                            <div style={{display:'flex',alignItems:'center',gap:0,marginBottom:6}}>
-                                                {stages.map((stage, i) => {
-                                                    const prog = r.recoveryProgress || 0;
-                                                    const done = prog >= stage.value;
-                                                    const active = prog < stage.value && (i === 0 || prog >= stages[i-1].value);
-                                                    return (
-                                                        <React.Fragment key={stage.value}>
-                                                            <div style={{display:'flex',flexDirection:'column',alignItems:'center',flex:'0 0 auto'}}>
-                                                                <div style={{
-                                                                    width:26,height:26,borderRadius:'50%',
-                                                                    background: done ? '#2563eb' : active ? '#93c5fd' : '#e5e7eb',
-                                                                    border: done ? '2px solid #1d4ed8' : active ? '2px solid #3b82f6' : '2px solid #d1d5db',
-                                                                    display:'flex',alignItems:'center',justifyContent:'center',
-                                                                    fontSize:10,color: done ? 'white' : '#6b7280',fontWeight:700,boxSizing:'border-box'
-                                                                }}>
-                                                                    {done ? '✓' : `${i+1}`}
-                                                                </div>
-                                                                <span style={{fontSize:8,color: done ? '#1d4ed8' : active ? '#3b82f6' : '#9ca3af',fontWeight: done ? 700 : 500,textAlign:'center',marginTop:2,maxWidth:50,lineHeight:1.2,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                                                                    {stage.label.split('– ')[1]}
-                                                                </span>
-                                                            </div>
-                                                            {i < stages.length - 1 && (
-                                                                <div style={{flex:1,height:3,background: prog >= stages[i+1].value ? '#2563eb' : prog >= stage.value ? '#93c5fd' : '#e5e7eb',marginBottom:12,transition:'background 0.3s'}} />
-                                                            )}
-                                                        </React.Fragment>
-                                                    );
-                                                })}
-                                            </div>
-                                            {/*<div style={{background:'#e5e7eb',borderRadius:6,height:7,overflow:'hidden'}}>*/}
-                                            {/*    <div style={{background:'linear-gradient(90deg,#3b82f6,#1d4ed8)',height:'100%',width:`${r.recoveryProgress||0}%`,borderRadius:6,transition:'width 0.5s ease'}} />*/}
-                                            {/*</div>*/}
-                                            {/*<span style={{fontSize:11,color:'#6b7280',marginTop:3,display:'block'}}>{getStageLabel(r.recoveryProgress||0)}</span>*/}
+                                    <RecoveryProgressBar
+                                        status={r.status}
+                                        recoveryProgress={r.recoveryProgress}
+                                    />
+                                    {canDelete && (
+                                        <div style={{display:'flex',justifyContent:'flex-end',marginTop:10}}>
+                                            <button style={S.btnDelete} onClick={() => handleDelete(r)}>Delete</button>
                                         </div>
                                     )}
                                 </div>
-                                );
-                            })
+                            ))
                         }
                     </div>
                 )}
@@ -336,8 +353,8 @@ export default function OfficerDashboard() {
                 {tab === 'new' && (
                     <div>
                         <h2 style={S.title}>Report Damage</h2>
-                        {submitMsg === 'success' && <div style={S.successBox}>✅ Report submitted successfully!</div>}
-                        {submitMsg === 'error' && <div style={S.errorBox}>❌ Failed to submit. Try again.</div>}
+                        {submitMsg === 'success' && <div style={S.successBox}>Report submitted successfully!</div>}
+                        {submitMsg === 'error' && <div style={S.errorBox}>Failed to submit. Try again.</div>}
                         <div style={S.formCard}>
                             <form onSubmit={handleSubmit}>
                                 <Field label="Report Title *">
@@ -373,24 +390,24 @@ export default function OfficerDashboard() {
                                         />
                                         <button 
                                             type="button" 
-                                            style={{ ...S.btn, background: '#2563eb', padding: '8px 16px' }}
+                                            style={{ ...S.btn, background: '#235347', padding: '8px 16px' }}
                                             onClick={handleSearch}
                                         >
                                             Search
                                         </button>
                                     </div>
-                                    {searchError && <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 8 }}>⚠️ {searchError}</div>}
+                                    {searchError && <div style={{ fontSize: 12, color: '#8EB69B', marginBottom: 8 }}>{searchError}</div>}
                                     <div 
                                         ref={mapRef} 
                                         style={{ 
                                             width: '100%', 
                                             height: '250px', 
                                             borderRadius: '8px', 
-                                            border: '1.5px solid #e5e7eb',
+                                            border: '1.5px solid #8EB69B',
                                             marginBottom: 8 
                                         }} 
                                     />
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#6b7280' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#235347' }}>
                                         <span>Latitude: {form.latitude || '-'}</span>
                                         <span>Longitude: {form.longitude || '-'}</span>
                                     </div>
@@ -408,7 +425,7 @@ export default function OfficerDashboard() {
                                     <input style={S.input} type="file" multiple accept="image/*"
                                            onChange={e => setFiles(Array.from(e.target.files || []))} />
                                 </Field>
-                                <button style={{...S.btn,background:'#2d5a27',width:'100%',padding:13,fontSize:15,fontWeight:700}} type="submit">
+                                <button style={{...S.btn,background:'#235347',width:'100%',padding:13,fontSize:18,fontWeight:700}} type="submit">
                                     Submit Damage Report
                                 </button>
                             </form>
@@ -446,19 +463,20 @@ export default function OfficerDashboard() {
                                         key={idx} 
                                         style={{
                                             ...S.sliderDot, 
-                                            background: idx === photoIndex ? '#2d5a27' : '#d1d5db'
+                                            background: idx === photoIndex ? '#235347' : '#8EB69B'
                                         }}
                                         onClick={() => setPhotoIndex(idx)}
                                     />
                                 ))}
                             </div>
                         )}
-                        <div style={{ textAlign: 'center', marginTop: 8, color: '#6b7280', fontSize: 12, fontWeight: 600 }}>
+                        <div style={{ textAlign: 'center', marginTop: 8, color: '#235347', fontSize: 12, fontWeight: 600 }}>
                             {photoIndex + 1} / {selectedPhotos.length}
                         </div>
                     </div>
                 </div>
             )}
+            </div>
         </div>
     );
 }
@@ -466,60 +484,61 @@ export default function OfficerDashboard() {
 function Field({ label, children, style }) {
     return (
         <div style={{ marginBottom:14, ...style }}>
-            <label style={{display:'block',fontSize:13,fontWeight:500,color:'#444',marginBottom:5}}>{label}</label>
+            <label style={{display:'block',fontSize:13,fontWeight:500,color:'#235347',marginBottom:5}}>{label}</label>
             {children}
         </div>
     );
 }
 
 const S = {
-    tabBar: {display:'flex',background:'white',borderRadius:10,padding:4,gap:4,marginBottom:20,boxShadow:'0 1px 4px rgba(0,0,0,0.07)'},
-    tab: {flex:1,padding:'10px',border:'none',background:'none',color:'#6b7280',fontSize:13,borderRadius:8},
-    tabActive: {flex:1,padding:'10px',border:'none',background:'#2d5a27',color:'white',fontSize:13,fontWeight:700,borderRadius:8},
-    title: {fontSize:20,fontWeight:700,margin:'0 0 16px',color:'#fff',textShadow:'0 2px 4px rgba(0,0,0,0.5)'},
-    card: {background:'white',borderRadius:10,padding:16,marginBottom:10,boxShadow:'0 1px 4px rgba(0,0,0,0.07)'},
-    badge: {fontSize:11,color:'white',padding:'3px 9px',borderRadius:20,fontWeight:600},
-    btn: {padding:'7px 16px',border:'none',borderRadius:7,color:'white',fontSize:13,fontWeight:600,cursor:'pointer'},
-    formCard: {background:'white',borderRadius:10,padding:20,boxShadow:'0 1px 4px rgba(0,0,0,0.07)'},
-    input: {width:'100%',padding:'11px 13px',border:'1.5px solid #e5e7eb',borderRadius:8,fontSize:14,background:'#fafafa',fontFamily:'inherit',boxSizing:'border-box'},
-    successBox: {background:'#dcfce7',color:'#166534',padding:'10px 14px',borderRadius:8,marginBottom:14,fontSize:13},
-    errorBox: {background:'#fee2e2',color:'#991b1b',padding:'10px 14px',borderRadius:8,marginBottom:14,fontSize:13},
-    
+    tabBar: {display:'flex',background:'#DAF1DE',borderRadius:12,padding:4,gap:4,marginBottom:20,border:'1px solid #8EB69B',boxShadow:'0 2px 10px rgba(11,43,38,0.10)'},
+    tab: {flex:1,padding:'10px',border:'none',background:'none',color:'#235347',fontSize:13,borderRadius:8,cursor:'pointer'},
+    tabActive: {flex:1,padding:'10px',border:'none',background:'#235347',color:'#DAF1DE',fontSize:13,fontWeight:700,borderRadius:8,cursor:'pointer'},
+    title: {fontSize:24,fontWeight:800,margin:'0 0 16px',color:'#0B2B26',textShadow:'none'},
+    card: {background:'#DAF1DE',borderRadius:12,padding:18,marginBottom:10,border:'1px solid #8EB69B',boxShadow:'0 2px 10px rgba(11,43,38,0.10)',color:'#0B2B26'},
+    badge: {fontSize:12,color:'#0B2B26',padding:'3px 9px',borderRadius:20,fontWeight:600},
+    btnDelete: {padding:'6px 14px',border:'1px solid #0B2B26',borderRadius:9,background:'#DAF1DE',color:'#0B2B26',fontSize:12,fontWeight:700,cursor:'pointer'},
+    btn: {padding:'7px 16px',border:'1px solid #235347',borderRadius:9,background:'#235347',color:'#DAF1DE',fontSize:13,fontWeight:700,cursor:'pointer'},
+    formCard: {background:'#DAF1DE',borderRadius:12,padding:22,border:'1px solid #8EB69B',boxShadow:'0 2px 10px rgba(11,43,38,0.10)',color:'#0B2B26'},
+    input: {width:'100%',padding:'11px 13px',border:'1.5px solid #8EB69B',borderRadius:8,fontSize:14,background:'#DAF1DE',color:'#0B2B26',fontFamily:'inherit',boxSizing:'border-box',outline:'none'},
+    successBox: {background:'#DAF1DE',color:'#0B2B26',borderLeft:'4px solid #235347',padding:'10px 14px',borderRadius:8,marginBottom:14,fontSize:13},
+    errorBox: {background:'#DAF1DE',color:'#0B2B26',borderLeft:'4px solid #0B2B26',padding:'10px 14px',borderRadius:8,marginBottom:14,fontSize:13},
+
     // Modal & Slider Styles
     modalOverlay: {
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center',
+        background: 'rgba(5,31,32,0.65)', display: 'flex', alignItems: 'center',
         justifyContent: 'center', zIndex: 1000, padding: 16
     },
     modalContent: {
-        background: 'white', borderRadius: 12, padding: '30px 20px 20px', maxWidth: 600,
-        width: '100%', position: 'relative', boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+        background:'#DAF1DE', borderRadius: 12, padding: '30px 20px 20px', maxWidth: 600,
+        width: '100%', position: 'relative', boxShadow: '0 4px 20px rgba(11,43,38,0.16)', color:'#0B2B26', border:'1px solid #8EB69B'
     },
     modalClose: {
-        position: 'absolute', top: 12, right: 12, background: '#f3f4f6',
-        border: 'none', borderRadius: '50%', width: 28, height: 28,
+        position: 'absolute', top: 12, right: 12, background: '#DAF1DE',
+        border: '1px solid #8EB69B', borderRadius: '50%', width: 28, height: 28,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'pointer', fontWeight: 'bold', color: '#4b5563', zIndex: 10
+        cursor: 'pointer', fontWeight: 'bold', color: '#0B2B26', zIndex: 10
     },
     sliderContainer: {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        position: 'relative', minHeight: 250, background: '#f3f4f6',
+        position: 'relative', minHeight: 250, background: '#8EB69B',
         borderRadius: 8, overflow: 'hidden', marginTop: 10
     },
     sliderImg: {
         maxWidth: '100%', maxHeight: 400, objectFit: 'contain'
     },
     navBtnLeft: {
-        position: 'absolute', left: 10, background: 'rgba(255,255,255,0.85)',
-        border: 'none', borderRadius: '50%', width: 36, height: 36,
+        position: 'absolute', left: 10, background: '#DAF1DE', color:'#0B2B26',
+        border: '1px solid #8EB69B', borderRadius: '50%', width: 36, height: 36,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.15)', fontWeight: 'bold', zIndex: 10
+        cursor: 'pointer', boxShadow: '0 2px 5px rgba(11,43,38,0.16)', fontWeight: 'bold', zIndex: 10
     },
     navBtnRight: {
-        position: 'absolute', right: 10, background: 'rgba(255,255,255,0.85)',
-        border: 'none', borderRadius: '50%', width: 36, height: 36,
+        position: 'absolute', right: 10, background: '#DAF1DE', color:'#0B2B26',
+        border: '1px solid #8EB69B', borderRadius: '50%', width: 36, height: 36,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.15)', fontWeight: 'bold', zIndex: 10
+        cursor: 'pointer', boxShadow: '0 2px 5px rgba(11,43,38,0.16)', fontWeight: 'bold', zIndex: 10
     },
     sliderDots: {
         display: 'flex', justifyContent: 'center', gap: 6, marginTop: 12

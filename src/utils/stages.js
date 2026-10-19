@@ -51,12 +51,74 @@ export const DAMAGE_STAGES = {
 };
 
 export const getStagesForType = (damageType) => {
-    const typeKey = (damageType || '').toUpperCase();
+    if (!damageType || typeof damageType !== 'string') {
+        return DAMAGE_STAGES.OTHER;
+    }
+    const typeKey = damageType.toUpperCase();
     return DAMAGE_STAGES[typeKey] || DAMAGE_STAGES.OTHER;
 };
 
 export const getStageLabel = (damageType, pct) => {
+    // Support being called as getStageLabel(pct) or getStageLabel(damageType, pct)
+    if (pct === undefined) {
+        pct = typeof damageType === 'number' ? damageType : Number(damageType) || 0;
+        damageType = 'OTHER';
+    }
     const stages = getStagesForType(damageType);
-    const stage = stages.find(s => s.value === pct);
-    return stage ? stage.label : `${pct || 0}%`;
+    const numPct = Number(pct) || 0;
+    const stage = stages.find(s => s.value === numPct);
+    return stage ? stage.label : `${numPct}% in progress`;
+};
+
+// ── THREE RECOVERY PROGRESS STAGES ──────────────────────────────────
+export const RECOVERY_STAGES = [
+    { key: 'PENDING', label: 'Pending', step: 1, percent: 0 },
+    { key: 'IN_PROGRESS', label: 'In Progress', step: 2, percent: 60 },
+    { key: 'RESOLVED', label: 'Resolved', step: 3, percent: 100 },
+];
+
+export const getRecoveryStageInfo = (status, recoveryProgress = 0) => {
+    const s = (status || 'PENDING').toUpperCase();
+    if (s === 'REJECTED') {
+        return {
+            stepIndex: -1,
+            key: 'REJECTED',
+            label: 'Rejected',
+            percent: 0,
+            showPercent: false,
+            badgeBg: '#ffebee',
+            badgeColor: '#c62828',
+        };
+    }
+    if (s === 'RESOLVED') {
+        return {
+            stepIndex: 2,
+            key: 'RESOLVED',
+            label: 'Resolved',
+            percent: 100,
+            showPercent: true,
+            badgeBg: '#235347',
+            badgeColor: '#DAF1DE',
+        };
+    }
+    if (s === 'IN_PROGRESS') {
+        return {
+            stepIndex: 1,
+            key: 'IN_PROGRESS',
+            label: 'In Progress',
+            percent: 60,
+            showPercent: true,
+            badgeBg: '#8EB69B',
+            badgeColor: '#0B2B26',
+        };
+    }
+    return {
+        stepIndex: 0,
+        key: 'PENDING',
+        label: 'Pending',
+        percent: 0,
+        showPercent: false,
+        badgeBg: '#DAF1DE',
+        badgeColor: '#0B2B26',
+    };
 };

@@ -1,109 +1,59 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import govLogo from '../assets/gov-logo.png';
 
 export default function Sidebar({ role, links }) {
-    const navigate = useNavigate();
-    const location = useLocation();
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const [open, setOpen] = useState(false);
 
-    const handleManageOfficers = () => {
-        navigate('/login?redirectTo=/admin/officers');
-        setOpen(false);
-    };
 
-    const handleLogout = () => {
-        localStorage.clear();
-        navigate('/');
-    };
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
+  };
 
-    const GREEN = '#2d5a27';
-    const GREEN_DARK = '#1a3c1a';
+  const navigation = (
+    <>
+      <div className="side-brand">
+        <img src={govLogo} alt="Sri Lanka National Emblem" />
+        <div><strong>Protect LK</strong><span>Government Portal</span></div>
+      </div>
 
-    return (
-        <>
-            {/* Mobile top bar */}
-            <div style={{ display: 'flex', alignItems: 'center', background: GREEN_DARK, padding: '12px 16px', position: 'sticky', top: 0, zIndex: 100 }}>
-                <button onClick={() => setOpen(!open)}
-                        style={{ background: 'none', border: 'none', color: 'white', fontSize: 22, marginRight: 12 }}>
-                    ☰
-                </button>
-                {/* <span style={{ color: 'white', fontWeight: 700, fontSize: 16, flex: 1 }}>🌿 EDRR</span>
-                <button onClick={handleLogout}
-                        style={{ background: 'none', border: '1px solid rgba(255,255,255,0.3)', color: 'white', padding: '4px 12px', borderRadius: 6, fontSize: 12 }}>
-                    Logout
-                </button>
-                */}
+      <div className="side-user-card">
+        <div className="side-avatar">{user.fullName?.[0]?.toUpperCase() || 'U'}</div>
+        <div><strong>{user.fullName || 'Protect LK User'}</strong><span>{role}</span></div>
+      </div>
 
-                <span style={{ color: 'white', fontWeight: 700, fontSize: 16, flex: 1 }}>🌿 EDRR</span>
-                <button
-                   style={{ background: 'none', border: '1px solid rgba(255,255,255,0.3)', color: 'white', padding: '4px 12px', borderRadius: 6, fontSize: 12 }}
-                   onClick={handleManageOfficers}>
-                  Manage Officers
-                </button>
-            </div>
+      <nav className="side-navigation">
+        {links.map(link => {
+            const isActive = location.pathname === link.path;
+            return (
+              <button key={link.path} className={isActive ? 'side-nav-item active' : 'side-nav-item'} onClick={() => {
+                navigate(link.path); setOpen(false);
+              }}>
+                <span>{link.label}</span>
+              </button>
+            );
+          })}
+      </nav>
 
-            {/* Sidebar drawer */}
-            {open && (
-                <div style={{ position: 'fixed', top: 0, left: 0, width: 260, height: '100vh', background: GREEN_DARK, zIndex: 200, display: 'flex', flexDirection: 'column', padding: '20px 0', boxShadow: '4px 0 20px rgba(0,0,0,0.3)' }}>
-                    {/* Header */}
-                    <div style={{ padding: '0 20px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                            <span style={{ color: 'white', fontWeight: 700, fontSize: 18 }}>🌿 EDRR</span>
-                            <button onClick={() => setOpen(false)}
-                                    style={{ background: 'none', border: 'none', color: 'white', fontSize: 20, cursor: 'pointer' }}>✕</button>
-                        </div>
-                        {/* User avatar */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{ width: 42, height: 42, borderRadius: '50%', background: GREEN, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 18, fontWeight: 700 }}>
-                                {user.fullName?.[0] || 'U'}
-                            </div>
-                            <div>
-                                <div style={{ color: 'white', fontSize: 14, fontWeight: 600 }}>{user.fullName}</div>
-                                <div style={{ color: '#86efac', fontSize: 11 }}>{role}</div>
-                            </div>
-                        </div>
-                    </div>
+      <div className="side-footer">
+        <button className="side-signout" onClick={handleLogout}>Sign Out</button>
+      </div>
+    </>
+  );
 
-                    {/* Nav links */}
-                    <nav style={{ flex: 1, padding: '16px 0' }}>
-                        {links
-                            .filter(link => link.path !== '/admin/officers' || user.email === 'admin@edrr.com')
-                            .map(link => {
-                                const isActive = location.pathname === link.path;
-                                const isManageOfficers = link.path === '/admin/officers';
-                                return (
-                                    <button key={link.path}
-                                            onClick={() => {
-                                                if (isManageOfficers) {
-                                                    handleManageOfficers();
-                                                    return;
-                                                }
-
-                                                navigate(link.path);
-                                                setOpen(false);
-                                            }}
-                                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', background: isActive ? 'rgba(255,255,255,0.15)' : 'none', border: 'none', color: isActive ? 'white' : 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'left', borderLeft: isActive ? '3px solid #4ade80' : '3px solid transparent' }}>
-                                        <span style={{ fontSize: 18 }}>{link.icon}</span>
-                                        {link.label}
-                                    </button>
-                                );
-                        })}
-                    </nav>
-
-                    {/* Logout */}
-                    <div style={{ padding: '16px 20px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                        <button onClick={handleLogout}
-                                style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', background: 'none', border: 'none', color: '#fca5a5', fontSize: 14 }}>
-                            <span style={{ fontSize: 18 }}>🚪</span> Sign Out
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Overlay */}
-            {open && <div onClick={() => setOpen(false)}
-                          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 199 }} />}
-        </>
-    );
+  return (
+    <>
+      <aside className="desktop-sidebar">{navigation}</aside>
+      <div className="mobile-dashboard-bar">
+        <button className="mobile-dashboard-menu" onClick={() => setOpen(true)}>☰</button>
+        <div className="mobile-dashboard-brand"><img src={govLogo} alt=""/><div><strong>Protect LK</strong><span>{role}</span></div></div>
+        <button className="mobile-signout" onClick={handleLogout}>Sign Out</button>
+      </div>
+      {open && <><div className="mobile-side-drawer">{navigation}</div><div className="sidebar-overlay" onClick={() => setOpen(false)} /></>}
+    </>
+  );
 }

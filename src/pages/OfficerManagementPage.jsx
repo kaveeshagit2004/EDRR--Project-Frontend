@@ -1,23 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
-import { getOfficers, addOfficer, deleteOfficer, } from '../api/api';
+import { getOfficers, addOfficer, deleteOfficer, getWaterStations } from '../api/api';
+import { NAV_USER_ADMIN, USER_ADMIN_ROLE_LABEL } from '../utils/adminNav';
+import AlertAnnouncementBanner from '../components/AlertAnnouncementBanner';
 
 const NAV_GA = [
     { path: '/admin-ga', icon: '', label: 'Overview' },
     { path: '/admin-ga/reports', icon: '', label: 'View Reports' },
+    { path: '/admin-ga/public-reports', icon: '', label: 'Public Reports' },
     { path: '/admin-ga/final', icon: '', label: 'Final Reports' },
     { path: '/admin-ga/feedback', icon: '', label: 'Citizen Feedback' },
-    { path: '/admin/officers', icon: '', label: 'Manage Officers' },
-    { path: '/admin-ga/profile', icon: '', label: 'Profile' },
 ];
 
 const NAV_RDA = [
     { path: '/admin-rda', icon: '', label: 'Overview' },
     { path: '/admin-rda/reports', icon: '', label: 'Damage Reports' },
+    { path: '/admin-rda/alerts', icon: '', label: 'Alert' },
     { path: '/admin-rda/recovery', icon: '', label: 'Recovery Progress' },
+    { path: '/admin-rda/public-reports', icon: '', label: 'Public Reports' },
     { path: '/admin-rda/final', icon: '', label: 'Final Reports' },
-    { path: '/admin/officers', icon: '', label: 'Manage Officers' },
-    { path: '/admin-rda/profile', icon: '', label: 'Profile' },
 ];
 
 const NAV_CITIZEN = [
@@ -26,38 +27,45 @@ const NAV_CITIZEN = [
   { path: "/citizen/alerts", icon: "", label: "Alerts" },
   { path: "/citizen/contact", icon: "", label: "Contact" },
   { path: "/citizen/feedback", icon: "", label: "Feedback" },
-  { path: "/citizen/about", icon: "", label: "About Us" },
-  { path: "/citizen/profile", icon: "", label: "Profile" },
   { path: "/citizen/water", icon: "", label: "Water Levels" },
 ];
 
 export default function OfficerManagementPage() {
     const [officers, setOfficers] = useState([]);
+    const [availableStations, setAvailableStations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     
     // Toggle registration form
     const [showForm, setShowForm] = useState(false);
+    const [showOfficerPassword, setShowOfficerPassword] = useState(false);
     const [formData, setFormData] = useState({
         fullName: '',
-        username: '',
         nic: '',
         email: '',
         password: '',
         phoneNumber: '',
         address: '',
+        divisionName: '',
+        waterStation: '',
         role: 'RURAL_OFFICER'
     });
+    const [profilePhoto, setProfilePhoto] = useState(null);
+    const [profilePhotoPreview, setProfilePhotoPreview] = useState(null);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState('ALL');
 
     const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-    
+    const isSystemAdmin = currentUser.email === 'admin@edrr.com';
+
     let links = NAV_GA;
     let sidebarRole = 'GA Admin';
-    if (currentUser.role === 'GA_ADMIN') {
+    if (isSystemAdmin) {
+        links = NAV_USER_ADMIN;
+        sidebarRole = USER_ADMIN_ROLE_LABEL;
+    } else if (currentUser.role === 'GA_ADMIN') {
         links = NAV_GA;
         sidebarRole = 'GA Admin';
     } else if (currentUser.role === 'RDA_ADMIN') {
@@ -70,6 +78,7 @@ export default function OfficerManagementPage() {
 
     useEffect(() => {
         loadOfficers();
+        loadStations();
     }, []);
 
     const loadOfficers = async () => {
@@ -84,6 +93,21 @@ export default function OfficerManagementPage() {
         }
     };
 
+    const loadStations = async () => {
+        try {
+            const res = await getWaterStations();
+            setAvailableStations(res.data || []);
+        } catch (err) {
+            console.error('Failed to load water stations', err);
+        }
+    };
+
+    const resetPhoto = () => {
+        if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview);
+        setProfilePhoto(null);
+        setProfilePhotoPreview(null);
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({
@@ -92,36 +116,70 @@ export default function OfficerManagementPage() {
         }));
     };
 
+    const handlePhotoChange = (e) => {
+        const file = e.target.files?.[0] || null;
+        setProfilePhoto(file);
+        setProfilePhotoPreview(prev => {
+            if (prev) URL.revokeObjectURL(prev);
+            return file ? URL.createObjectURL(file) : null;
+        });
+    };
+
     const handleAddOfficer = async (e) => {
         e.preventDefault();
         setError('');
         setSuccess('');
 
         // Simple validation
-        if (!formData.fullName || !formData.username || !formData.nic || !formData.email || !formData.password) {
+        if (!formData.fullName || !formData.nic || !formData.email || !formData.password) {
             setError('All marked fields are required.');
             return;
         }
 
+        if (formData.role === 'RURAL_OFFICER' && !formData.divisionName.trim()) {
+            setError('Rural Officer Division Name is required.');
+            return;
+        }
+
+        if (formData.role === 'IRRIGATION_OFFICER' && !formData.waterStation.trim()) {
+            setError('Water-Reading Station is required for Irrigation Officers.');
+            return;
+        }
+
         try {
-            await addOfficer(formData);
+            let payload = formData;
+            if (profilePhoto) {
+                payload = new FormData();
+                Object.entries(formData).forEach(([key, value]) => payload.append(key, value));
+                payload.append('profilePhoto', profilePhoto);
+            }
+            await addOfficer(payload);
             setSuccess(`Officer ${formData.fullName} has been registered successfully!`);
             setShowForm(false);
             // Reset form
             setFormData({
                 fullName: '',
-                username: '',
                 nic: '',
                 email: '',
                 password: '',
                 phoneNumber: '',
                 address: '',
+                divisionName: '',
+                waterStation: '',
                 role: 'RURAL_OFFICER'
             });
-            // Reload list
+            resetPhoto();
+            // Reload list and stations
             loadOfficers();
+            loadStations();
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to register officer.');
+            const apiError = 
+                err.response?.data?.error || 
+                err.response?.data?.message || 
+                err.response?.data?.errors?.[0]?.defaultMessage || 
+                err.message || 
+                'Failed to register officer.';
+            setError(apiError);
         }
     };
 
@@ -155,9 +213,10 @@ export default function OfficerManagementPage() {
     const filteredOfficers = officers.filter(off => {
         const matchesSearch = 
             off.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            off.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             off.nic?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            off.email?.toLowerCase().includes(searchQuery.toLowerCase());
+            off.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            off.divisionName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            off.waterStation?.toLowerCase().includes(searchQuery.toLowerCase());
         
         const matchesRole = roleFilter === 'ALL' ? true : off.role === roleFilter;
 
@@ -177,29 +236,32 @@ export default function OfficerManagementPage() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #06402B 0%, #084c33 50%, #15794a 85%, #80EF80 100%)', backgroundAttachment: 'fixed', fontFamily: 'inherit' }}>
+        <div className="edrr-dashboard-page">
             <Sidebar role={sidebarRole} links={links} />
             
-            <div style={{ padding: 16, maxWidth: 1000, margin: '0 auto' }}>
+            <div className="dashboard-with-sidebar"><div className="edrr-dashboard-content" style={{ maxWidth:1180, margin:'0 auto' }}>
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
                     <div>
-                        <h2 style={S.title}>Officer Registry</h2>
-                        <p style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.7)', marginTop: 2 }}>
+                        <h2 style={S.title}>User Controller</h2>
+                        <p style={{ fontSize: 13, color: '#235347', marginTop: 2 }}>
                             Manage administrative access and view status for Division &amp; Irrigation officers.
                         </p>
                     </div>
                     <button 
                         style={showForm ? S.btnCancel : S.btnPrimary} 
-                        onClick={() => { setShowForm(!showForm); setError(''); setSuccess(''); }}
+                        onClick={() => { setShowForm(!showForm); setError(''); setSuccess(''); resetPhoto(); }}
                     >
-                        {showForm ? '✕ Close Form' : ' Register New Officer'}
+                        {showForm ? 'Close Form' : 'Register New Officer'}
                     </button>
                 </div>
 
+                {/* GA Admin Official Alert Announcement Banner (Displayed under main heading and sub heading) */}
+                <AlertAnnouncementBanner />
+
                 {/* Notifications */}
-                {error && <div style={S.errorBox}>⚠️ {error}</div>}
-                {success && <div style={S.successBox}>✅ {success}</div>}
+                {error && <div style={S.errorBox}>{error}</div>}
+                {success && <div style={S.successBox}>{success}</div>}
 
                 {/* Registration Form */}
                 {showForm && (
@@ -220,16 +282,20 @@ export default function OfficerManagementPage() {
                                     />
                                 </div>
                                 <div style={S.formGroup}>
-                                    <label style={S.label}>Username * (Unique)</label>
-                                    <input 
-                                        type="text" 
-                                        name="username" 
-                                        value={formData.username} 
-                                        onChange={handleInputChange} 
-                                        placeholder="kamalp" 
-                                        style={S.input} 
-                                        required 
+                                    <label style={S.label}>Profile Photo (optional)</label>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handlePhotoChange}
+                                        style={S.input}
                                     />
+                                    {profilePhotoPreview && (
+                                        <img
+                                            src={profilePhotoPreview}
+                                            alt="Profile preview"
+                                            style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', marginTop: 6, border: '1.5px solid #8EB69B' }}
+                                        />
+                                    )}
                                 </div>
                                 <div style={S.formGroup}>
                                     <label style={S.label}>NIC Number * (Unique)</label>
@@ -257,15 +323,25 @@ export default function OfficerManagementPage() {
                                 </div>
                                 <div style={S.formGroup}>
                                     <label style={S.label}>Password *</label>
-                                    <input 
-                                        type="password" 
-                                        name="password" 
-                                        value={formData.password} 
-                                        onChange={handleInputChange} 
-                                        placeholder="••••••••" 
-                                        style={S.input} 
-                                        required 
-                                    />
+                                    <div style={{ position: 'relative' }}>
+                                        <input 
+                                            type={showOfficerPassword ? 'text' : 'password'} 
+                                            name="password" 
+                                            value={formData.password} 
+                                            onChange={handleInputChange} 
+                                            placeholder="••••••••" 
+                                            style={{ ...S.input, width: '100%', paddingRight: 40, boxSizing: 'border-box' }} 
+                                            required 
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowOfficerPassword(!showOfficerPassword)}
+                                            aria-label="Toggle password visibility"
+                                            style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', color: '#235347', cursor: 'pointer', padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            {showOfficerPassword ? '●' : '○'}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div style={S.formGroup}>
                                     <label style={S.label}>Phone Number</label>
@@ -303,9 +379,49 @@ export default function OfficerManagementPage() {
                                         <option value="RDA_ADMIN">RDA/DMC Administrator</option>
                                     </select>
                                 </div>
+                                {formData.role === 'RURAL_OFFICER' && (
+                                    <div style={S.formGroup}>
+                                        <label style={S.label}>Rural Officer Division Name * (Unique)</label>
+                                        <input 
+                                            type="text" 
+                                            name="divisionName" 
+                                            value={formData.divisionName} 
+                                            onChange={handleInputChange} 
+                                            placeholder="E.g. Weligama, Akuressa, Matara Four Gravets..." 
+                                            style={S.input} 
+                                            required 
+                                        />
+                                        <small style={{ fontSize: 11, color: '#235347', marginTop: 4, display: 'block' }}>
+                                            Assigned administrative division. Citizen public damage reports for this division will be routed to this officer.
+                                        </small>
+                                    </div>
+                                )}
+                                {formData.role === 'IRRIGATION_OFFICER' && (
+                                    <div style={S.formGroup}>
+                                        <label style={S.label}>Water-Reading Station * (Assigned)</label>
+                                        <input 
+                                            type="text" 
+                                            name="waterStation" 
+                                            list="water-station-options"
+                                            value={formData.waterStation} 
+                                            onChange={handleInputChange} 
+                                            placeholder="E.g. Nilwala River - Matara, Kirama Oya, Panadugama..." 
+                                            style={S.input} 
+                                            required 
+                                        />
+                                        <datalist id="water-station-options">
+                                            {availableStations.map(st => (
+                                                <option key={st} value={st} />
+                                            ))}
+                                        </datalist>
+                                        <small style={{ fontSize: 11, color: '#235347', marginTop: 4, display: 'block' }}>
+                                            Assigned water monitoring station. Upon login, this officer will exclusively view and record data for this station.
+                                        </small>
+                                    </div>
+                                )}
                             </div>
                             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-                                <button type="button" style={S.btnCancelInline} onClick={() => setShowForm(false)}>Cancel</button>
+                                <button type="button" style={S.btnCancelInline} onClick={() => { setShowForm(false); resetPhoto(); }}>Cancel</button>
                                 <button type="submit" style={S.btnSubmit}>Create Account</button>
                             </div>
                         </form>
@@ -316,33 +432,33 @@ export default function OfficerManagementPage() {
                 <div style={S.statsGrid}>
                     <div style={S.statCard}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}></div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#1e293b' }}>{totalCount}</div>
-                        <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Total Officers</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0B2B26' }}>{totalCount}</div>
+                        <div style={{ fontSize: 12, color: '#235347', fontWeight: 600 }}>Total Officers</div>
                     </div>
                     <div style={S.statCard}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}></div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#2563eb' }}>{ruralCount}</div>
-                        <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Rural Division</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0B2B26' }}>{ruralCount}</div>
+                        <div style={{ fontSize: 12, color: '#235347', fontWeight: 600 }}>Rural Division</div>
                     </div>
                     <div style={S.statCard}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}></div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0891b2' }}>{irrigationCount}</div>
-                        <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Irrigation</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0B2B26' }}>{irrigationCount}</div>
+                        <div style={{ fontSize: 12, color: '#235347', fontWeight: 600 }}>Irrigation</div>
                     </div>
                     <div style={S.statCard}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}></div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed' }}>{gaCount}</div>
-                        <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Gov Agent (GA)</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0B2B26' }}>{gaCount}</div>
+                        <div style={{ fontSize: 12, color: '#235347', fontWeight: 600 }}>Gov Agent (GA)</div>
                     </div>
                     <div style={S.statCard}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}></div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#ea580c' }}>{rdaCount}</div>
-                        <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>RDA/DMC Admin</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0B2B26' }}>{rdaCount}</div>
+                        <div style={{ fontSize: 12, color: '#235347', fontWeight: 600 }}>RDA/DMC Admin</div>
                     </div>
                     <div style={S.statCard}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}></div>
-                        <div style={{ fontSize: 24, fontWeight: 800, color: '#16a34a' }}>{activeCount}</div>
-                        <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600 }}>Active Accounts</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#0B2B26' }}>{activeCount}</div>
+                        <div style={{ fontSize: 12, color: '#235347', fontWeight: 600 }}>Active Accounts</div>
                     </div>
                 </div>
 
@@ -352,7 +468,7 @@ export default function OfficerManagementPage() {
                         type="text" 
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="🔍 Search by Name, Email, NIC or Username..." 
+                        placeholder="Search by Name, Email, or NIC..." 
                         style={S.searchInput}
                     />
                     <select 
@@ -380,7 +496,7 @@ export default function OfficerManagementPage() {
                                 <thead>
                                     <tr>
                                         <th style={S.th}>Officer Details</th>
-                                        <th style={S.th}>NIC / Username</th>
+                                        <th style={S.th}>NIC Number</th>
                                         <th style={S.th}>Assigned Role</th>
                                         <th style={S.th}>Status</th>
                                         <th style={S.th}>Last Activity</th>
@@ -391,13 +507,30 @@ export default function OfficerManagementPage() {
                                     {filteredOfficers.map(off => (
                                         <tr key={off.id} style={S.tr}>
                                             <td style={S.td}>
-                                                <div style={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>{off.fullName}</div>
-                                                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>✉️ {off.email}</div>
-                                                {off.phoneNumber && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>📞 {off.phoneNumber}</div>}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                    {off.profilePhotoUrl ? (
+                                                        <img 
+                                                            src={off.profilePhotoUrl.startsWith('http') ? off.profilePhotoUrl : `http://localhost:8080${off.profilePhotoUrl}`} 
+                                                            alt={off.fullName} 
+                                                            style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #8EB69B', flexShrink: 0 }} 
+                                                        />
+                                                    ) : (
+                                                        <div style={{
+                                                            width: 40, height: 40, borderRadius: '50%', background: '#8EB69B', color: '#0B2B26',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 16, flexShrink: 0
+                                                        }}>
+                                                            {off.fullName?.[0]?.toUpperCase() || 'O'}
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <div style={{ fontWeight: 700, fontSize: 16, color: '#0B2B26' }}>{off.fullName}</div>
+                                                        <div style={{ fontSize: 12, color: '#235347', marginTop: 2 }}>{off.email}</div>
+                                                        {off.phoneNumber && <div style={{ fontSize: 12, color: '#235347', marginTop: 2 }}>{off.phoneNumber}</div>}
+                                                    </div>
+                                                </div>
                                             </td>
                                             <td style={S.td}>
                                                 <div style={{ fontSize: 13, fontWeight: 500 }}>{off.nic}</div>
-                                                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2, fontFamily: 'monospace' }}>@{off.username}</div>
                                             </td>
                                             <td style={S.td}>
                                                 <span style={
@@ -413,6 +546,16 @@ export default function OfficerManagementPage() {
                                                         off.role === 'RDA_ADMIN' ? 'RDA/DMC Administrator' : off.role
                                                     }
                                                 </span>
+                                                {off.divisionName && (
+                                                    <div style={{ fontSize: 11, color: '#0B2B26', fontWeight: 700, marginTop: 4, background: '#8EB69B', padding: '2px 8px', borderRadius: 4, display: 'inline-block' }}>
+                                                        Division: {off.divisionName}
+                                                    </div>
+                                                )}
+                                                {off.waterStation && (
+                                                    <div style={{ fontSize: 11, color: '#0B2B26', fontWeight: 700, marginTop: 4, background: '#8EB69B', padding: '2px 8px', borderRadius: 4, display: 'inline-block' }}>
+                                                        Station: {off.waterStation}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td style={S.td}>
                                                 <span style={off.active ? S.badgeActive : S.badgeInactive}>
@@ -420,7 +563,7 @@ export default function OfficerManagementPage() {
                                                 </span>
                                             </td>
                                             <td style={S.td}>
-                                                <div style={{ fontSize: 12, color: '#334155', fontWeight: 500 }}>
+                                                <div style={{ fontSize: 12, color: '#235347', fontWeight: 500 }}>
                                                     {formatDateTime(off.lastLogin)}
                                                 </div>
                                             </td>
@@ -430,7 +573,7 @@ export default function OfficerManagementPage() {
                                                     onClick={() => handleDeleteOfficer(off.id, off.fullName)}
                                                     title="Delete Officer Account"
                                                 >
-                                                    🗑️ Delete
+                                                    Delete
                                                 </button>
                                             </td>
                                         </tr>
@@ -441,114 +584,115 @@ export default function OfficerManagementPage() {
                     )}
                 </div>
             </div>
+            </div>
         </div>
     );
 }
 
 const S = {
-    title: { fontSize: 22, fontWeight: 800, margin: 0, color: '#fff', textShadow: '0 2px 4px rgba(0,0,0,0.5)' },
+    title: { fontSize: 24, fontWeight: 800, margin: 0, color: '#0B2B26', textShadow: 'none' },
     btnPrimary: {
         padding: '10px 20px',
-        background: 'rgba(255, 255, 255, 0.15)',
+        background: '#235347',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        color: '#ffffff',
-        border: '1px solid rgba(255, 255, 255, 0.35)',
-        borderRadius: '30px',
+        color: '#DAF1DE',
+        border: '1px solid #235347',
+        borderRadius: '9px',
         fontSize: 13,
         fontWeight: 700,
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.2)',
-        textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+        boxShadow: '0 8px 24px rgba(11,43,38,0.16)',
+        textShadow: 'none',
         transition: 'all 0.3s ease',
     },
     btnCancel: {
         padding: '10px 20px',
-        background: 'rgba(239, 68, 68, 0.25)',
+        background: '#DAF1DE',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        color: '#fecaca',
-        border: '1px solid rgba(239, 68, 68, 0.45)',
-        borderRadius: '30px',
+        color: '#0B2B26',
+        border: '1px solid #8EB69B',
+        borderRadius: '9px',
         fontSize: 13,
         fontWeight: 700,
         cursor: 'pointer',
         display: 'flex',
         alignItems: 'center',
         gap: 6,
-        boxShadow: '0 8px 32px 0 rgba(239, 68, 68, 0.15)',
-        textShadow: '0 1px 2px rgba(0,0,0,0.2)',
+        boxShadow: '0 8px 24px rgba(11,43,38,0.10)',
+        textShadow: 'none',
         transition: 'all 0.3s ease',
     },
-    errorBox: { background: '#fef2f2', borderLeft: '4px solid #ef4444', color: '#b91c1c', padding: 12, borderRadius: 6, marginBottom: 16, fontSize: 13, fontWeight: 500 },
-    successBox: { background: '#f0fdf4', borderLeft: '4px solid #22c55e', color: '#15803d', padding: 12, borderRadius: 6, marginBottom: 16, fontSize: 13, fontWeight: 500 },
-    
+    errorBox: { background: '#DAF1DE', borderLeft: '4px solid #0B2B26', color: '#0B2B26', padding: 12, borderRadius: 6, marginBottom: 16, fontSize: 13, fontWeight: 500 },
+    successBox: { background: '#DAF1DE', borderLeft: '4px solid #235347', color: '#0B2B26', padding: 12, borderRadius: 6, marginBottom: 16, fontSize: 13, fontWeight: 500 },
+
     // Stats
     statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, marginBottom: 20 },
-    statCard: { background: 'white', borderRadius: 10, padding: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', textAlign: 'center', border: '1px solid #e2e8f0' },
-    
+    statCard: { background:'#DAF1DE', borderRadius: 10, padding: 14, boxShadow: '0 2px 10px rgba(11,43,38,0.10)', textAlign: 'center', border: '1px solid #8EB69B' },
+
     // Form
-    formCard: { background: 'white', borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', border: '1px solid #e2e8f0' },
-    cardTitle: { fontSize: 16, fontWeight: 700, margin: '0 0 16px', color: '#1e293b', borderBottom: '1px solid #f1f5f9', paddingBottom: 10 },
+    formCard: { background:'#DAF1DE', borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: '0 2px 10px rgba(11,43,38,0.10)', border: '1px solid #8EB69B' },
+    cardTitle: { fontSize: 18, fontWeight: 700, margin: '0 0 16px', color: '#0B2B26', borderBottom: '1px solid #8EB69B', paddingBottom: 10 },
     form: { display: 'flex', flexDirection: 'column', gap: 12 },
     formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 },
     formGroup: { display: 'flex', flexDirection: 'column', gap: 4 },
-    label: { fontSize: 12, fontWeight: 600, color: '#475569' },
-    input: { padding: '9px 12px', border: '1.5px solid #cbd5e1', borderRadius: 8, fontSize: 13, outline: 'none', background: '#f8fafc', transition: 'border-color 0.2s' },
-    select: { padding: '9px 12px', border: '1.5px solid #cbd5e1', borderRadius: 8, fontSize: 13, background: 'white', cursor: 'pointer', outline: 'none' },
+    label: { fontSize: 12, fontWeight: 600, color: '#235347' },
+    input: { padding: '9px 12px', border: '1.5px solid #8EB69B', borderRadius: 8, fontSize: 13, outline: 'none', background: '#DAF1DE', color: '#0B2B26', transition: 'border-color 0.2s' },
+    select: { padding: '9px 12px', border: '1.5px solid #8EB69B', borderRadius: 8, fontSize: 13, background:'#DAF1DE', color: '#0B2B26', cursor: 'pointer', outline: 'none' },
     btnSubmit: {
         padding: '10px 22px',
-        background: 'rgba(74, 222, 128, 0.25)',
+        background: '#235347',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        color: '#06402B',
-        border: '1px solid rgba(74, 222, 128, 0.45)',
+        color: '#DAF1DE',
+        border: '1px solid #235347',
         borderRadius: '30px',
         fontSize: 13,
         fontWeight: 700,
         cursor: 'pointer',
-        boxShadow: '0 8px 32px 0 rgba(74, 222, 128, 0.15)',
+        boxShadow: '0 8px 24px rgba(11,43,38,0.14)',
         transition: 'all 0.3s ease',
     },
     btnCancelInline: {
         padding: '10px 22px',
-        background: 'rgba(255, 255, 255, 0.08)',
+        background: '#DAF1DE',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        color: '#cbd5e1',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
+        color: '#0B2B26',
+        border: '1px solid #8EB69B',
         borderRadius: '30px',
         fontSize: 13,
         fontWeight: 600,
         cursor: 'pointer',
         transition: 'all 0.3s ease',
     },
-    
+
     // Filter
     filterRow: { display: 'flex', gap: 12, marginBottom: 16 },
-    searchInput: { flex: 1, padding: '10px 14px', border: '1.5px solid #cbd5e1', borderRadius: 8, fontSize: 13, outline: 'none' },
-    filterSelect: { padding: '10px 14px', border: '1.5px solid #cbd5e1', borderRadius: 8, fontSize: 13, background: 'white' },
-    
+    searchInput: { flex: 1, padding: '10px 14px', border: '1.5px solid #8EB69B', borderRadius: 8, fontSize: 13, outline: 'none', background: '#DAF1DE', color: '#0B2B26' },
+    filterSelect: { padding: '10px 14px', border: '1.5px solid #8EB69B', borderRadius: 8, fontSize: 13, background:'#DAF1DE', color: '#0B2B26' },
+
     // Table
-    tableCard: { background: 'white', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' },
-    emptyState: { padding: 40, textAlign: 'center', color: '#64748b', fontSize: 13 },
-    table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-    th: { background: '#f8fafc', padding: '12px 16px', fontSize: 12, fontWeight: 700, color: '#475569', borderBottom: '1px solid #e2e8f0' },
-    tr: { borderBottom: '1px solid #f1f5f9', transition: 'background 0.15s' },
-    td: { padding: '14px 16px', verticalAlign: 'middle' },
-    
+    tableCard: { background:'#DAF1DE', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 10px rgba(11,43,38,0.10)', border: '1px solid #8EB69B' },
+    emptyState: { padding: 40, textAlign: 'center', color: '#235347', fontSize: 13 },
+    table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: '#0B2B26' },
+    th: { background: '#235347', padding: '12px 16px', fontSize: 12, fontWeight: 700, color: '#DAF1DE', borderBottom: '1px solid #8EB69B' },
+    tr: { borderBottom: '1px solid #8EB69B', transition: 'background 0.15s' },
+    td: { padding: '14px 16px', verticalAlign: 'middle', color: '#0B2B26' },
+
     // Badges
-    badgeRural: { fontSize: 11, fontWeight: 600, background: '#eff6ff', color: '#1d4ed8', padding: '3px 8px', borderRadius: 12 },
-    badgeIrrigation: { fontSize: 11, fontWeight: 600, background: '#ecfeff', color: '#0891b2', padding: '3px 8px', borderRadius: 12 },
-    badgeGA: { fontSize: 11, fontWeight: 600, background: '#f5f3ff', color: '#7c3aed', padding: '3px 8px', borderRadius: 12 },
-    badgeRDA: { fontSize: 11, fontWeight: 600, background: '#fff7ed', color: '#ea580c', padding: '3px 8px', borderRadius: 12 },
-    badgeDefault: { fontSize: 11, fontWeight: 600, background: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: 12 },
-    badgeActive: { fontSize: 11, fontWeight: 600, background: '#f0fdf4', color: '#16a34a', padding: '2px 6px', borderRadius: 6 },
-    badgeInactive: { fontSize: 11, fontWeight: 600, background: '#fef2f2', color: '#dc2626', padding: '2px 6px', borderRadius: 6 },
-    
+    badgeRural: { fontSize: 12, fontWeight: 600, background: '#8EB69B', color: '#0B2B26', padding: '3px 8px', borderRadius: 12 },
+    badgeIrrigation: { fontSize: 12, fontWeight: 600, background: '#8EB69B', color: '#0B2B26', padding: '3px 8px', borderRadius: 12 },
+    badgeGA: { fontSize: 12, fontWeight: 600, background: '#8EB69B', color: '#0B2B26', padding: '3px 8px', borderRadius: 12 },
+    badgeRDA: { fontSize: 12, fontWeight: 600, background: '#8EB69B', color: '#0B2B26', padding: '3px 8px', borderRadius: 12 },
+    badgeDefault: { fontSize: 12, fontWeight: 600, background: '#8EB69B', color: '#0B2B26', padding: '3px 8px', borderRadius: 12 },
+    badgeActive: { fontSize: 12, fontWeight: 600, background: '#8EB69B', color: '#0B2B26', padding: '2px 6px', borderRadius: 6 },
+    badgeInactive: { fontSize: 12, fontWeight: 600, background: '#8EB69B', color: '#0B2B26', padding: '2px 6px', borderRadius: 6 },
+
     // Buttons
-    btnDelete: { padding: '5px 10px', background: '#fef2f2', color: '#991b1b', border: '1px solid #fee2e2', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }
+    btnDelete: { padding: '5px 10px', background: '#235347', color: '#DAF1DE', border: '1px solid #235347', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }
 };
