@@ -2,32 +2,38 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '../components/Sidebar';
 import {
     getAllPublicReports,
-    updatePublicReportStatus,
-    updatePublicReportProgress,
+    markPublicReportViewed,
     deletePublicReport
 } from '../api/api';
 import { resolveSidebarNav, AS } from '../utils/adminNav';
 import { canDeletePublicReports } from '../utils/reportPermissions';
-import RecoveryProgressBar from '../components/RecoveryProgressBar';
 import AlertAnnouncementBanner from '../components/AlertAnnouncementBanner';
 
-const REPORT_TYPES = [
-    { value: 'ALL', label: 'All Types' },
-    { value: 'FLOOD', label: 'Flood' },
-    { value: 'ROAD_DAMAGE', label: 'Road Damage' },
-    { value: 'LANDSLIDE', label: 'Landslide' },
-    { value: 'BRIDGE_DAMAGE', label: 'Bridge Damage' },
-    { value: 'BUILDING', label: 'Building' },
-    { value: 'WATER_POLLUTION', label: 'Water Pollution' },
-    { value: 'OTHER', label: 'Other' },
+const STATUS_FILTERS = [
+    { value: 'ALL', label: 'All Reports' },
+    { value: 'PENDING', label: 'Pending RDA Review' },
+    { value: 'VIEWED', label: 'Viewed by RDA / DMC' },
 ];
 
-const STATUS_FILTERS = [
-    { value: 'ALL', label: 'All Stages' },
-    { value: 'PENDING', label: 'Pending' },
-    { value: 'IN_PROGRESS', label: 'In Progress' },
-    { value: 'RESOLVED', label: 'Resolved' },
-];
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isWithinOneWeek(iso) {
+    if (!iso) return true;
+    const t = new Date(iso).getTime();
+    return !isNaN(t) && (Date.now() - t) <= ONE_WEEK_MS;
+}
+
+function getRemainingTimeText(iso) {
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    if (isNaN(t)) return null;
+    const diff = ONE_WEEK_MS - (Date.now() - t);
+    if (diff <= 0) return 'Expired';
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+    const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    if (days > 0) return `${days}d ${hours}h remaining`;
+    return `${hours}h remaining`;
+}
 
 function formatDate(iso) {
     if (!iso) return '';
@@ -49,7 +55,6 @@ export default function AdminPublicReportsPage() {
     const [loading, setLoading] = useState(true);
     const [query, setQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
-    const [damageType, setDamageType] = useState('ALL');
     const [divisionFilter, setDivisionFilter] = useState('ALL');
     const [selectedPhotos, setSelectedPhotos] = useState(null);
     const [photoIndex, setPhotoIndex] = useState(0);
@@ -69,12 +74,13 @@ export default function AdminPublicReportsPage() {
         load();
     }, []);
 
-    // Scoped reports: Rural Division Officers only see damage reports for their assigned division
+    // Scoped reports: filter out reports older than 1 week (7 days) and apply division scoping for Rural Officers
     const baseReports = useMemo(() => {
+        const activeWithinWeek = reports.filter(r => isWithinOneWeek(r.reportedAt));
         if (isRuralOfficer && officerDivision) {
-            return reports.filter(r => (r.divisionName || '').trim().toLowerCase() === officerDivision.toLowerCase());
+            return activeWithinWeek.filter(r => (r.divisionName || '').trim().toLowerCase() === officerDivision.toLowerCase());
         }
-        return reports;
+        return activeWithinWeek;
     }, [reports, isRuralOfficer, officerDivision]);
 
     // Available divisions across all reports for admin filtering
@@ -82,45 +88,41 @@ export default function AdminPublicReportsPage() {
         return Array.from(new Set(reports.map(r => (r.divisionName || '').trim()).filter(Boolean))).sort();
     }, [reports]);
 
+    const isRdaAdmin = user.role === 'RDA_ADMIN';
+
     const stats = useMemo(() => {
         const total = baseReports.length;
-        const pending = baseReports.filter(r => (r.status || 'PENDING') === 'PENDING').length;
-        const inProgress = baseReports.filter(r => r.status === 'IN_PROGRESS').length;
-        const resolved = baseReports.filter(r => r.status === 'RESOLVED').length;
-        return { total, pending, inProgress, resolved };
+        const viewed = baseReports.filter(r => Boolean(r.viewedByRda || r.status === 'VIEWED_BY_RDA' || r.status === 'VIEWED')).length;
+        const pending = total - viewed;
+        return { total, viewed, pending };
     }, [baseReports]);
 
     const filtered = useMemo(() => baseReports.filter(r => {
-        const status = (r.status || 'PENDING').toUpperCase();
-        const matchesStatus = statusFilter === 'ALL' || status === statusFilter;
-        const matchesType = damageType === 'ALL' || r.damageType === damageType;
+        const isViewed = Boolean(r.viewedByRda || r.status === 'VIEWED_BY_RDA' || r.status === 'VIEWED');
+        let matchesStatus = true;
+        if (statusFilter === 'VIEWED') matchesStatus = isViewed;
+        else if (statusFilter === 'PENDING') matchesStatus = !isViewed;
+
         const matchesDivision = isRuralOfficer || divisionFilter === 'ALL' ||
             (r.divisionName || '').trim().toLowerCase() === divisionFilter.toLowerCase();
         const haystack = `${r.reportNumber || ''} ${r.title || ''} ${r.location || ''} ${r.divisionName || ''} ${r.reporterName || ''} ${r.reporterNic || ''} ${r.reporterPhone || ''} ${r.reporterEmail || ''}`.toLowerCase();
-        return matchesStatus && matchesType && matchesDivision && haystack.includes(query.toLowerCase());
-    }), [baseReports, statusFilter, damageType, divisionFilter, isRuralOfficer, query]);
+        return matchesStatus && matchesDivision && haystack.includes(query.toLowerCase());
+    }), [baseReports, statusFilter, divisionFilter, isRuralOfficer, query]);
 
-    const handleStageChange = async (id, newStatus) => {
-        let notes = '';
-        if (newStatus === 'RESOLVED') {
-            notes = prompt('Notes for marking as resolved (optional):') || '';
+    const handleMarkViewed = async (reportId, viewed = true) => {
+        if (!isRdaAdmin) {
+            alert('Only RDA Admin is authorized to mark public damage reports as viewed.');
+            return;
         }
         try {
-            await updatePublicReportStatus(id, newStatus, notes);
-            if (newStatus === 'RESOLVED') {
-                await updatePublicReportProgress(id, 100);
-            } else if (newStatus === 'PENDING') {
-                await updatePublicReportProgress(id, 0);
-            } else if (newStatus === 'IN_PROGRESS') {
-                await updatePublicReportProgress(id, 60);
-            }
+            await markPublicReportViewed(reportId, viewed);
             load();
-        } catch {
-            alert('Failed to update stage');
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to update report status');
         }
     };
 
-    // Public reports delete access: only Rural Division Officer, GA Admin, RDA Admin, and Irrigation Officer
+    // Public reports delete access: ONLY Rural Division Officer (RDA Officers & others cannot delete)
     const canDelete = canDeletePublicReports(user);
 
     const handleDelete = async (r) => {
@@ -142,12 +144,13 @@ export default function AdminPublicReportsPage() {
 
                     {/* Header */}
                     <div style={{ marginBottom: 20 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                             <h2 style={AS.title}>Public Damage Reports</h2>
                             <span style={S.publicBadge}>Citizen Submissions</span>
+                            <span style={S.expiryPill}>⏱️ Auto-Disappears After 1 Week (7 Days)</span>
                         </div>
                         <p style={AS.subtitle}>
-                            Review and manage damage reports submitted by citizens via the public damage report portal.
+                            Review and manage damage reports submitted by citizens via the public damage report portal. Public damage reports automatically disappear across the system within 7 days. Only Rural Division Officers can delete reports.
                         </p>
 
                         {/* GA Admin Official Alert Announcement Banner (Displayed under main heading and sub heading) */}
@@ -199,16 +202,12 @@ export default function AdminPublicReportsPage() {
                             <div style={S.statLabel}>Total Public Reports</div>
                         </div>
                         <div style={S.statCard}>
-                            <div style={{ ...S.statNum, color: '#235347' }}>{stats.pending}</div>
-                            <div style={S.statLabel}>Stage 1: Pending Review</div>
+                            <div style={{ ...S.statNum, color: '#d97706' }}>{stats.pending}</div>
+                            <div style={S.statLabel}>Pending RDA Review</div>
                         </div>
                         <div style={S.statCard}>
-                            <div style={{ ...S.statNum, color: '#235347' }}>{stats.inProgress}</div>
-                            <div style={S.statLabel}>Stage 2: In Progress</div>
-                        </div>
-                        <div style={S.statCard}>
-                            <div style={{ ...S.statNum, color: '#0B2B26' }}>{stats.resolved}</div>
-                            <div style={S.statLabel}>Stage 3: Resolved</div>
+                            <div style={{ ...S.statNum, color: '#235347' }}>{stats.viewed}</div>
+                            <div style={S.statLabel}>Viewed by RDA / DMC</div>
                         </div>
                     </div>
 
@@ -221,9 +220,9 @@ export default function AdminPublicReportsPage() {
                             onChange={e => setQuery(e.target.value)}
                         />
 
-                        {/* Stage Filter Chips */}
+                        {/* Status Filter Chips */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#0B2B26' }}>Stage:</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#0B2B26' }}>Status:</span>
                             {STATUS_FILTERS.map(s => (
                                 <button
                                     key={s.value}
@@ -232,22 +231,7 @@ export default function AdminPublicReportsPage() {
                                 >
                                     {s.label}
                                     {s.value === 'PENDING' && ` (${stats.pending})`}
-                                    {s.value === 'IN_PROGRESS' && ` (${stats.inProgress})`}
-                                    {s.value === 'RESOLVED' && ` (${stats.resolved})`}
-                                </button>
-                            ))}
-                        </div>
-
-                        {/* Damage Type Filter Chips */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#0B2B26' }}>Damage Type:</span>
-                            {REPORT_TYPES.map(t => (
-                                <button
-                                    key={t.value}
-                                    style={damageType === t.value ? AS.chipActive : AS.chip}
-                                    onClick={() => setDamageType(t.value)}
-                                >
-                                    {t.label}
+                                    {s.value === 'VIEWED' && ` (${stats.viewed})`}
                                 </button>
                             ))}
                         </div>
@@ -301,15 +285,22 @@ export default function AdminPublicReportsPage() {
                                             </span>
                                             <span style={S.publicBadge}>Citizen Submission</span>
                                         </div>
-                                        <span style={{
-                                            ...AS.badge,
-                                            background: r.status === 'RESOLVED' ? '#235347' : r.status === 'IN_PROGRESS' ? '#8EB69B' : '#DAF1DE',
-                                            color: r.status === 'RESOLVED' ? '#DAF1DE' : '#0B2B26',
-                                            border: '1px solid #8EB69B',
-                                            fontWeight: 700
-                                        }}>
-                                            {r.status || 'PENDING'}
-                                        </span>
+                                        {(() => {
+                                            const isViewed = Boolean(r.viewedByRda || r.status === 'VIEWED_BY_RDA' || r.status === 'VIEWED');
+                                            return (
+                                                <span style={{
+                                                    ...AS.badge,
+                                                    background: isViewed ? '#235347' : '#fef3c7',
+                                                    color: isViewed ? '#DAF1DE' : '#92400e',
+                                                    border: `1.5px solid ${isViewed ? '#235347' : '#f59e0b'}`,
+                                                    fontWeight: 800,
+                                                    padding: '4px 12px',
+                                                    borderRadius: 20
+                                                }}>
+                                                    {isViewed ? '✓ Viewed by RDA/DMC Admin' : '⏳ Pending RDA Review'}
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
 
                                     {/* Title & Location */}
@@ -350,24 +341,36 @@ export default function AdminPublicReportsPage() {
                                                 🏛️ Division: Unassigned
                                             </span>
                                         )}
-                                        <span style={AS.badge}>{(r.damageType || 'OTHER').replace('_', ' ')}</span>
-                                        <span style={{
-                                            ...AS.badge,
-                                            background: r.severity === 'CRITICAL' ? '#f00909' : r.severity === 'HIGH' ? '#fa5508' : '#8EB69B',
-                                            color: (r.severity === 'CRITICAL' || r.severity === 'HIGH') ? '#fff' : '#0B2B26',
-                                            fontWeight: 700
-                                        }}>
-                                            {r.severity || 'MEDIUM'}
-                                        </span>
                                         {r.affectedArea && (
                                             <span style={{ fontSize: 12, color: '#235347' }}>
                                                 Affected Area: <strong>{r.affectedArea}</strong>
                                             </span>
                                         )}
                                         {r.reportedAt && (
-                                            <span style={{ fontSize: 12, color: '#235347' }}>
-                                                &middot; Submitted: {formatDate(r.reportedAt)}
-                                            </span>
+                                            <>
+                                                <span style={{ fontSize: 12, color: '#235347' }}>
+                                                    &middot; Submitted: {formatDate(r.reportedAt)}
+                                                </span>
+                                                {(() => {
+                                                    const rem = getRemainingTimeText(r.reportedAt);
+                                                    return rem ? (
+                                                        <span style={{
+                                                            fontSize: 11,
+                                                            color: '#0B2B26',
+                                                            background: '#DAF1DE',
+                                                            padding: '2px 8px',
+                                                            borderRadius: 12,
+                                                            border: '1px solid #8EB69B',
+                                                            fontWeight: 600,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: 3
+                                                        }}>
+                                                            ⏱️ {rem}
+                                                        </span>
+                                                    ) : null;
+                                                })()}
+                                            </>
                                         )}
                                     </div>
 
@@ -436,36 +439,67 @@ export default function AdminPublicReportsPage() {
                                         </div>
                                     )}
 
-                                    {/* 3-Stage Progress Bar ("Pending", "In Progress", "Resolved") */}
-                                    <RecoveryProgressBar
-                                        status={r.status}
-                                        recoveryProgress={r.recoveryProgress}
-                                        onStageChange={(newStatus) => handleStageChange(r.id, newStatus)}
-                                    />
-
-                                    {/* Action Buttons */}
-                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center', justifyContent: canDelete ? 'space-between' : 'flex-start' }}>
-                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                            {(r.status || 'PENDING') === 'PENDING' && (
-                                                <button style={S.btn} onClick={() => handleStageChange(r.id, 'IN_PROGRESS')}>
-                                                    Start Recovery (In Progress) →
-                                                </button>
-                                            )}
-                                            {r.status === 'IN_PROGRESS' && (
-                                                <>
-                                                    <button style={S.btn} onClick={() => handleStageChange(r.id, 'RESOLVED')}>
-                                                        Mark Resolved ✓
-                                                    </button>
-                                                    <button style={S.btnGhost} onClick={() => handleStageChange(r.id, 'PENDING')}>
-                                                        ← Move Back to Pending
-                                                    </button>
-                                                </>
-                                            )}
-                                            {r.status === 'RESOLVED' && (
-                                                <button style={S.btnGhost} onClick={() => handleStageChange(r.id, 'IN_PROGRESS')}>
-                                                    Reopen Recovery
-                                                </button>
-                                            )}
+                                    {/* Action Buttons (Progress bar removed - only RDA admin can mark as viewed) */}
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, alignItems: 'center', justifyContent: canDelete ? 'space-between' : 'flex-start' }}>
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                            {(() => {
+                                                const isViewed = Boolean(r.viewedByRda || r.status === 'VIEWED_BY_RDA' || r.status === 'VIEWED');
+                                                if (isRdaAdmin) {
+                                                    return !isViewed ? (
+                                                        <button
+                                                            style={{
+                                                                ...S.btn,
+                                                                background: '#235347',
+                                                                color: '#ffffff',
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: 6,
+                                                                fontWeight: 700
+                                                            }}
+                                                            onClick={() => handleMarkViewed(r.id, true)}
+                                                        >
+                                                            ✓ Mark as Viewed by RDA / DMC
+                                                        </button>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                            <span style={{
+                                                                fontSize: 13,
+                                                                color: '#235347',
+                                                                fontWeight: 700,
+                                                                background: '#DAF1DE',
+                                                                padding: '6px 12px',
+                                                                borderRadius: 8,
+                                                                border: '1px solid #8EB69B'
+                                                            }}>
+                                                                ✓ Marked as Viewed by RDA Admin {r.viewedByName ? `(${r.viewedByName})` : ''}
+                                                            </span>
+                                                            <button
+                                                                style={{
+                                                                    ...S.btnGhost,
+                                                                    fontSize: 12,
+                                                                    padding: '5px 10px'
+                                                                }}
+                                                                onClick={() => handleMarkViewed(r.id, false)}
+                                                                title="Undo viewed status"
+                                                            >
+                                                                Undo
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                } else {
+                                                    return (
+                                                        <span style={{
+                                                            fontSize: 12,
+                                                            color: isViewed ? '#235347' : '#92400e',
+                                                            fontWeight: 600
+                                                        }}>
+                                                            {isViewed
+                                                                ? `✓ Viewed by RDA/DMC Admin ${r.viewedByName ? `(${r.viewedByName})` : ''}`
+                                                                : '⏳ Awaiting review by RDA Admin'}
+                                                        </span>
+                                                    );
+                                                }
+                                            })()}
                                         </div>
 
                                         {canDelete && (
@@ -529,6 +563,18 @@ const S = {
     },
     statNum: { fontSize: 24, fontWeight: 800, color: '#0B2B26' },
     statLabel: { fontSize: 12, color: '#235347', marginTop: 2, fontWeight: 600 },
+    expiryPill: {
+        fontSize: 11,
+        fontWeight: 700,
+        background: '#DAF1DE',
+        color: '#0B2B26',
+        border: '1.5px solid #235347',
+        padding: '3px 10px',
+        borderRadius: 14,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4
+    },
     publicBadge: {
         fontSize: 11,
         fontWeight: 700,

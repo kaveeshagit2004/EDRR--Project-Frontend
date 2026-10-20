@@ -76,6 +76,9 @@ export const deletePublicReport         = (id)         => api.delete(`/public-re
 export const restorePublicReport        = (id)         => api.put(`/public-reports/${id}/restore`);
 export const permanentlyDeletePublicReport = (id)      => api.delete(`/public-reports/${id}/permanent`);
 export const getPublicReportStats       = ()           => api.get('/public-reports/stats');
+export const markPublicReportViewed     = (id, viewed = true) => api.put(`/public-reports/${id}/view`, { viewed });
+export const getDamageReportingStatus   = ()           => api.get('/public-reports/reporting-status');
+export const setDamageReportingStatus   = (open)       => api.put('/public-reports/reporting-status', { open });
 
 // ── WATER LEVELS ──────────────────────────────────────
 export const getAllWaterLevels    = ()           => api.get('/water-levels');

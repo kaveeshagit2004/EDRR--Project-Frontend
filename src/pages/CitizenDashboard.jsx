@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import PublicNavbar from '../components/PublicNavbar';
 import StatusBadge from '../components/StatusBadge';
 import WeatherCard from '../components/WeatherCard';
-import { getAllReports, getAllWaterLevels, getReportStats } from '../api/api';
+import { getAllReports, getAllWaterLevels, getReportStats, getDamageReportingStatus } from '../api/api';
 import RecoveryProgressBar from '../components/RecoveryProgressBar';
 import AlertAnnouncementBanner from '../components/AlertAnnouncementBanner';
 import { getRecordAlertInfo } from '../utils/waterAlerts';
@@ -15,14 +15,27 @@ export default function CitizenDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedPhotos, setSelectedPhotos] = useState(null);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [reportingOpen, setReportingOpen] = useState(() => {
+    return localStorage.getItem('edrr_damage_reporting_open') === 'true';
+  });
 
   useEffect(() => {
     const loadPublicData = () => {
-      Promise.all([getAllReports(), getAllWaterLevels(), getReportStats()])
-        .then(([r, w, s]) => {
+      Promise.all([
+        getAllReports().catch(() => ({ data: [] })),
+        getAllWaterLevels().catch(() => ({ data: [] })),
+        getReportStats().catch(() => ({ data: {} })),
+        getDamageReportingStatus().catch(() => ({ data: {} }))
+      ])
+        .then(([r, w, s, statusRes]) => {
           setReports((r.data || []).filter(report => report.status !== 'REJECTED'));
           setWaterLevels(w.data || []);
           setStats(s.data || {});
+          if (statusRes.data && statusRes.data.open !== undefined) {
+            const isOpen = Boolean(statusRes.data.open);
+            setReportingOpen(isOpen);
+            localStorage.setItem('edrr_damage_reporting_open', isOpen);
+          }
         })
         .catch(console.error)
         .finally(() => setLoading(false));
@@ -78,44 +91,6 @@ export default function CitizenDashboard() {
                   </strong>
                 </div>
               </div>
-
-              {waterLevels[0] && (() => {
-                const topAlert = getRecordAlertInfo(waterLevels[0]);
-                return (
-                  <div
-                    className="mini-water-preview"
-                    style={{
-                      borderLeft: `4px solid ${topAlert.borderColor}`,
-                      background: topAlert.status !== 'NORMAL' ? topAlert.bgTint : undefined
-                    }}
-                  >
-                    <div>
-                      <strong>{waterLevels[0].locationName}</strong>
-                      <span>{waterLevels[0].district} District</span>
-                    </div>
-
-                    <div style={{ textAlign: 'right' }}>
-                      <strong style={{ color: topAlert.status !== 'NORMAL' ? topAlert.textColor : undefined }}>
-                        {waterLevels[0].currentLevel} m
-                      </strong>
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          background: topAlert.badgeBg,
-                          color: topAlert.badgeText,
-                          padding: '2px 8px',
-                          borderRadius: 999,
-                          fontWeight: 700,
-                          marginTop: 4,
-                          display: 'inline-block'
-                        }}
-                      >
-                        {topAlert.badgeLabel}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
           </div>
 
@@ -129,8 +104,53 @@ export default function CitizenDashboard() {
           <AlertAnnouncementBanner />
         </div>
 
+        {/* GA Admin Activated Damage Reporting Notice */}
+        {reportingOpen && (
+          <div style={{
+            maxWidth: 1180,
+            margin: '20px auto 28px',
+            padding: '14px 20px',
+            background: '#ffffff',
+            border: '2px solid #235347',
+            borderRadius: 12,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12,
+            boxShadow: '0 2px 10px rgba(11,43,38,0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 24 }}></span>
+              <div>
+                <strong style={{ color: '#0B2B26', fontSize: 15, display: 'block' }}>
+                  Citizen Reporting is Open
+                </strong>
+                <span style={{ color: '#235347', fontSize: 13 }}>
+                  The Government Agent has activated the public reporting portal. Citizens can report flood damage, blocked roads, and landslides for authority response.
+                </span>
+              </div>
+            </div>
+            <Link
+              to="/citizen/report-damage"
+              style={{
+                background: '#235347',
+                color: '#DAF1DE',
+                padding: '9px 18px',
+                borderRadius: 8,
+                fontWeight: 700,
+                fontSize: 13,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Go to Citizen Report Uploader →
+            </Link>
+          </div>
+        )}
+
         {majorWater.length > 0 && (
-          <section className="critical-banner" style={{ background: '#dc2626', color: '#fff', borderLeft: '6px solid #991b1b' }}>
+          <section className="critical-banner" style={{ marginTop: '24px', background: '#dc2626', color: '#fff', borderLeft: '6px solid #991b1b' }}>
             <div>
               <span style={{ color: '#fee2e2', fontWeight: 800 }}>🚨 MAJOR FLOOD WARNING ACTIVE</span>
               <h3 style={{ color: '#fff' }}>{majorWater.map(w => w.locationName).join(', ')}</h3>
@@ -141,7 +161,7 @@ export default function CitizenDashboard() {
         )}
 
         {majorWater.length === 0 && warningWater.length > 0 && (
-          <section className="critical-banner" style={{ background: '#ea580c', color: '#fff', borderLeft: '6px solid #c2410c' }}>
+          <section className="critical-banner" style={{ marginTop: '24px', background: '#ea580c', color: '#fff', borderLeft: '6px solid #c2410c' }}>
             <div>
               <span style={{ color: '#ffedd5', fontWeight: 800 }}>⚠️ FLOOD ADVISORY ACTIVE</span>
               <h3 style={{ color: '#fff' }}>{warningWater.map(w => w.locationName).join(', ')}</h3>

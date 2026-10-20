@@ -11,15 +11,11 @@ export function canDeleteReports(user = {}) {
 }
 
 // Who may delete public damage reports:
-// Only Rural Division Officers, GA Admins, RDA Admins, and Irrigation Officers.
-// The system administrator (admin@edrr.com) and citizens do not have delete access.
+// ONLY Rural Division Officers (RURAL_OFFICER).
+// RDA Officers, GA Admins, Irrigation Officers, the system administrator (admin@edrr.com),
+// and citizens do NOT have delete access.
 export function canDeletePublicReports(user = {}) {
     if (!user || user.email === SYSTEM_ADMIN_EMAIL) return false;
-    return (
-        user.role === 'RURAL_OFFICER' ||
-        user.role === 'GA_ADMIN' ||
-        user.role === 'RDA_ADMIN' ||
-        user.role === 'IRRIGATION_OFFICER'
-    );
+    return user.role === 'RURAL_OFFICER';
 }
 

@@ -7,8 +7,8 @@ export const NAV_USER_ADMIN = [
     { path: '/admin/officers/map', icon: '', label: 'Map' },
     { path: '/admin/officers/alerts', icon: '', label: 'Alert' },
     { path: '/admin/officers/contact', icon: '', label: 'Contact' },
-    { path: '/admin/officers/report-damage', icon: '', label: 'Report Damage' },
-    { path: '/admin/officers/public-reports', icon: '', label: 'Public Reports' },
+    { path: '/admin/officers/report-damage', icon: '', label: 'Situation Reports' },
+    { path: '/admin/officers/public-reports', icon: '', label: 'Citizen Reports' },
     { path: '/admin/officers/profile', icon: '', label: 'Profile' },
 ];
 
@@ -19,8 +19,8 @@ export const NAV_RURAL_OFFICER = [
     { path: '/officer/map', icon: '', label: 'Map' },
     { path: '/officer/alerts', icon: '', label: 'Alert' },
     { path: '/officer/contact', icon: '', label: 'Contact' },
-    { path: '/officer/report-damage', icon: '', label: 'Report Damage' },
-    { path: '/officer/public-reports', icon: '', label: 'Public Reports' },
+    { path: '/officer/report-damage', icon: '', label: 'Situation Reports' },
+    { path: '/officer/public-reports', icon: '', label: 'Citizen Reports' },
     { path: '/officer/profile', icon: '', label: 'Profile' },
 ];
 
@@ -30,7 +30,7 @@ export const NAV_GA_ADMIN = [
     { path: '/admin-ga', icon: '', label: 'Overview' },
     { path: '/admin-ga/map', icon: '', label: 'Map' },
     { path: '/admin-ga/alerts', icon: '', label: 'Alert' },
-    { path: '/admin-ga/public-reports', icon: '', label: 'Public Reports' },
+    { path: '/admin-ga/public-reports', icon: '', label: 'Citizen Reports' },
     { path: '/admin-ga/final', icon: '', label: 'Final Report' },
     { path: '/admin-ga/feedback', icon: '', label: 'Citizen Feedback' },
     { path: '/admin-ga/profile', icon: '', label: 'Profile' },
@@ -42,7 +42,7 @@ export const NAV_RDA_ADMIN = [
     { path: '/admin-rda', icon: '', label: 'Overview' },
     { path: '/admin-rda/alerts', icon: '', label: 'Alert' },
     { path: '/admin-rda/recovery', icon: '', label: 'Recovery Progress' },
-    { path: '/admin-rda/public-reports', icon: '', label: 'Public Reports' },
+    { path: '/admin-rda/public-reports', icon: '', label: 'Citizen Reports' },
     { path: '/admin-rda/final', icon: '', label: 'Final Report' },
     { path: '/admin-rda/profile', icon: '', label: 'Profile' },
 ];
@@ -58,7 +58,7 @@ export const NAV_IRRIGATION_OFFICER = [
     { path: '/water', icon: '', label: 'Water Station' },
     { path: '/water/map', icon: '', label: 'Map' },
     { path: '/water/alerts', icon: '', label: 'Alerts' },
-    { path: '/water/public-reports', icon: '', label: 'Public Reports' },
+    { path: '/water/public-reports', icon: '', label: 'Citizen Reports' },
     { path: '/water/profile', icon: '', label: 'Profile' },
 ];
 

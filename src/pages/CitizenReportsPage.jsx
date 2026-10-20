@@ -23,7 +23,7 @@ export default function CitizenReportsPage() {
             setLoadError('');
           }
         })
-        .catch(err => {
+        .catch(() => {
           if (isMounted) {
             setLoadError('Unable to load situation reports. Please check your connection.');
           }

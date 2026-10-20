@@ -10,8 +10,8 @@ const NAV = [
     { path: '/officer/map', icon: '', label: 'Map' },
     { path: '/officer/alerts', icon: '', label: 'Alerts' },
     { path: '/officer/contact', icon: '', label: 'Contact' },
-    { path: '/officer/report-damage', icon: '', label: 'Report Damage' },
-    { path: '/officer/public-reports', icon: '', label: 'Public Reports' },
+    { path: '/officer/report-damage', icon: '', label: 'Situation Damage' },
+    { path: '/officer/public-reports', icon: '', label: 'Citizen Reports' },
     { path: '/officer/profile', icon: '', label: 'Profile' },
 ];
 

@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import govLogo from '../assets/gov-logo.png';
+import { getDamageReportingStatus } from '../api/api';
 
-const links = [
+const baseLinks = [
   { to: '/citizen', label: 'Home' },
   { to: '/citizen/reports', label: 'Situation Reports' },
-  { to: '/citizen/report-damage', label: 'Report Damage' },
+  { to: '/citizen/report-damage', label: 'Report Damage', requiresOpen: true },
   { to: '/citizen/water', label: 'Flood Monitor' },
   { to: '/citizen/map', label: 'Map' },
   { to: '/citizen/alerts', label: 'Alerts' },
@@ -14,10 +15,40 @@ const links = [
 
 export default function PublicNavbar() {
   const [open, setOpen] = useState(false);
+  const [reportingOpen, setReportingOpen] = useState(() => {
+    return localStorage.getItem('edrr_damage_reporting_open') === 'true';
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    let mounted = true;
+    const checkStatus = () => {
+      getDamageReportingStatus()
+        .then(res => {
+          if (mounted && res.data) {
+            const isOpen = Boolean(res.data.open);
+            setReportingOpen(isOpen);
+            localStorage.setItem('edrr_damage_reporting_open', isOpen);
+          }
+        })
+        .catch(() => {});
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 8000);
+    const onFocus = () => checkStatus();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, []);
+
+  const activeLinks = baseLinks.filter(l => !l.requiresOpen || reportingOpen);
 
   const handleLogout = () => {
     localStorage.clear();
@@ -37,7 +68,7 @@ export default function PublicNavbar() {
         </Link>
 
         <nav className={`public-nav-links ${open ? 'open' : ''}`}>
-          {links.map(link => (
+          {activeLinks.map(link => (
             <Link
               key={link.to}
               to={link.to}

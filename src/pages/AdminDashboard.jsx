@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import WeatherCard from '../components/WeatherCard';
-import { getAllReports, updateReportStatus, updateReportProgress, getReportStats, deleteReport, getDeletedReports } from '../api/api';
+import {
+    getAllReports,
+    updateReportStatus,
+    updateReportProgress,
+    getReportStats,
+    deleteReport,
+    getDeletedReports,
+    getDamageReportingStatus,
+    setDamageReportingStatus,
+    getPublicReportStats
+} from '../api/api';
 import RecoveryProgressBar from '../components/RecoveryProgressBar';
 import { NAV_GA_ADMIN, GA_ADMIN_ROLE_LABEL, NAV_RDA_ADMIN, RDA_ADMIN_ROLE_LABEL } from '../utils/adminNav';
 import { canDeleteReports } from '../utils/reportPermissions';
@@ -25,6 +36,47 @@ export default function AdminDashboard({ type = 'GA', initialTab = 'overview' })
     const [showBin, setShowBin] = useState(false);
     const [binCount, setBinCount] = useState(0);
 
+    // Citizen Damage Reporting Portal Access Control (GA Admin)
+    const [reportingOpen, setReportingOpen] = useState(false);
+    const [togglingReporting, setTogglingReporting] = useState(false);
+    const [reportingInfo, setReportingInfo] = useState(null);
+    const [publicStats, setPublicStats] = useState({ total: 0, viewed: 0, pending: 0 });
+
+    const loadReportingStatus = () => {
+        getDamageReportingStatus()
+            .then(res => {
+                if (res.data) {
+                    setReportingOpen(Boolean(res.data.open));
+                    setReportingInfo(res.data);
+                    localStorage.setItem('edrr_damage_reporting_open', Boolean(res.data.open));
+                }
+            })
+            .catch(() => {});
+        getPublicReportStats()
+            .then(res => setPublicStats(res.data || {}))
+            .catch(() => {});
+    };
+
+    const handleToggleReporting = async () => {
+        const nextState = !reportingOpen;
+        const confirmMsg = nextState
+            ? 'Are you sure you want to OPEN the "Report Damage" portal for citizens?\n\nThe tab will immediately become visible to citizens to submit emergency damage reports.'
+            : 'Are you sure you want to CLOSE the "Report Damage" portal for citizens?\n\nThe tab will be closed in citizen views and new submissions will be paused.';
+        if (!window.confirm(confirmMsg)) return;
+
+        setTogglingReporting(true);
+        try {
+            const res = await setDamageReportingStatus(nextState);
+            setReportingOpen(Boolean(res.data?.open));
+            setReportingInfo(res.data);
+            localStorage.setItem('edrr_damage_reporting_open', Boolean(res.data?.open));
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to update citizen reporting status');
+        } finally {
+            setTogglingReporting(false);
+        }
+    };
+
     const loadBinCount = () => {
         if (!canDelete) return;
         getDeletedReports()
@@ -38,11 +90,15 @@ export default function AdminDashboard({ type = 'GA', initialTab = 'overview' })
             .catch(console.error)
             .finally(() => setLoading(false));
         loadBinCount();
+        loadReportingStatus();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const reload = () => Promise.all([getAllReports(), getReportStats()])
-        .then(([r, s]) => { setReports(r.data); setStats(s.data); });
+    const reload = () => {
+        Promise.all([getAllReports(), getReportStats()])
+            .then(([r, s]) => { setReports(r.data); setStats(s.data); });
+        loadReportingStatus();
+    };
 
     const handleStatus = async (id, status) => {
         let notes = '';
@@ -134,6 +190,126 @@ export default function AdminDashboard({ type = 'GA', initialTab = 'overview' })
                                 </div>
                             ))}
                         </div>
+
+                        {/* ── CITIZEN REPORT DAMAGE ACCESS CONTROLLER (GA ADMIN) ── */}
+                        {isGA && (
+                            <div style={{
+                                background: reportingOpen ? '#ffffff' : '#fcfbf7',
+                                border: `2px solid ${reportingOpen ? '#235347' : '#d97706'}`,
+                                borderRadius: 12,
+                                padding: '18px 22px',
+                                marginTop: 16,
+                                marginBottom: 16,
+                                boxShadow: '0 2px 10px rgba(11,43,38,0.08)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: 16
+                            }}>
+                                <div style={{ flex: '1 1 320px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                                        <span style={{ fontSize: 22 }}>{reportingOpen ? '🟢' : '🔒'}</span>
+                                        <h3 style={{ fontSize: 17, fontWeight: 800, color: '#0B2B26', margin: 0 }}>
+                                            Citizen Damage Reporting Portal Access
+                                        </h3>
+                                        <span style={{
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            padding: '3px 10px',
+                                            borderRadius: 999,
+                                            background: reportingOpen ? '#235347' : '#fee2e2',
+                                            color: reportingOpen ? '#DAF1DE' : '#991b1b',
+                                            border: `1px solid ${reportingOpen ? '#235347' : '#fca5a5'}`
+                                        }}>
+                                            {reportingOpen ? 'ACTIVE · OPEN FOR CITIZENS' : 'CLOSED · INACTIVE'}
+                                        </span>
+                                    </div>
+                                    <p style={{ fontSize: 13, color: '#235347', margin: 0, lineHeight: 1.5 }}>
+                                        {reportingOpen
+                                            ? 'Citizens can currently see the "Report Damage" tab and submit emergency environmental damage reports through the citizen portal.'
+                                            : 'The "Report Damage" tab is currently closed for citizens. Activate this tab only when the GA Admin decides to open public damage reporting.'}
+                                    </p>
+                                    {reportingInfo?.updatedAt && (
+                                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>
+                                            Last updated: {new Date(reportingInfo.updatedAt).toLocaleString()} {reportingInfo.updatedBy ? `by ${reportingInfo.updatedBy}` : ''}
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleToggleReporting}
+                                        disabled={togglingReporting}
+                                        style={{
+                                            padding: '10px 18px',
+                                            borderRadius: 8,
+                                            fontSize: 13,
+                                            fontWeight: 700,
+                                            cursor: togglingReporting ? 'not-allowed' : 'pointer',
+                                            border: 'none',
+                                            background: reportingOpen ? '#dc2626' : '#235347',
+                                            color: '#ffffff',
+                                            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                                            transition: 'all 0.2s ease',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 8
+                                        }}
+                                    >
+                                        {togglingReporting ? 'Updating...' : reportingOpen ? '🔒 Close Damage Reporting for Citizens' : '🔓 Open Damage Reporting for Citizens'}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── PUBLIC DAMAGE REPORTS OVERVIEW (RDA ADMIN) ── */}
+                        {!isGA && (
+                            <div style={{
+                                background: '#ffffff',
+                                border: '2px solid #8EB69B',
+                                borderRadius: 12,
+                                padding: '16px 20px',
+                                marginTop: 16,
+                                marginBottom: 16,
+                                boxShadow: '0 2px 8px rgba(11,43,38,0.06)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                flexWrap: 'wrap',
+                                gap: 14
+                            }}>
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                        <span style={{ fontSize: 20 }}>📋</span>
+                                        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0B2B26', margin: 0 }}>
+                                            Public Citizen Damage Reports (RDA / DMC Review)
+                                        </h3>
+                                    </div>
+                                    <p style={{ fontSize: 13, color: '#235347', margin: 0 }}>
+                                        <strong>{publicStats.pending || 0}</strong> report(s) awaiting RDA review · <strong>{publicStats.viewed || 0}</strong> marked as viewed by RDA/DMC Admin.
+                                    </p>
+                                </div>
+                                <Link
+                                    to="/admin-rda/public-reports"
+                                    style={{
+                                        padding: '9px 16px',
+                                        borderRadius: 8,
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        textDecoration: 'none',
+                                        background: '#235347',
+                                        color: '#DAF1DE',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}
+                                >
+                                    Review Public Reports →
+                                </Link>
+                            </div>
+                        )}
 
                         {/* Weather Forecast Card (Displayed for both GA and RDA Overview) */}
                         <div style={S.overviewWeatherRow}>
