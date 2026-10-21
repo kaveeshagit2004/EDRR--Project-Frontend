@@ -11,7 +11,10 @@ import {
     getDeletedReports,
     getDamageReportingStatus,
     setDamageReportingStatus,
-    getPublicReportStats
+    getPublicReportStats,
+    getRdaFinalReportNotifications,
+    getDashboardNotifications,
+    dismissNotification
 } from '../api/api';
 import RecoveryProgressBar from '../components/RecoveryProgressBar';
 import { NAV_GA_ADMIN, GA_ADMIN_ROLE_LABEL, NAV_RDA_ADMIN, RDA_ADMIN_ROLE_LABEL } from '../utils/adminNav';
@@ -19,6 +22,16 @@ import { canDeleteReports } from '../utils/reportPermissions';
 import RecycleBin, { RecycleBinIcon } from '../components/RecycleBin';
 import AlertAnnouncementBanner from '../components/AlertAnnouncementBanner';
 import GAAnnouncementCard from '../components/GAAnnouncementCard';
+
+function formatDate(iso) {
+    if (!iso) return '';
+    try {
+        const d = new Date(iso);
+        return d.toLocaleDateString(undefined, { dateStyle: 'medium' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+        return iso;
+    }
+}
 
 export default function AdminDashboard({ type = 'GA', initialTab = 'overview' }) {
     const [tab, setTab] = useState(initialTab);
@@ -35,6 +48,11 @@ export default function AdminDashboard({ type = 'GA', initialTab = 'overview' })
     const canDelete = isGA && canDeleteReports(user);
     const [showBin, setShowBin] = useState(false);
     const [binCount, setBinCount] = useState(0);
+
+    // RDA / DMC Final Report removal notification states
+    const [rdaNotice, setRdaNotice] = useState(null);
+    const [showRdaModal, setShowRdaModal] = useState(false);
+    const [citizenNotifs, setCitizenNotifs] = useState([]);
 
     // Citizen Damage Reporting Portal Access Control (GA Admin)
     const [reportingOpen, setReportingOpen] = useState(false);
@@ -93,6 +111,103 @@ export default function AdminDashboard({ type = 'GA', initialTab = 'overview' })
         loadReportingStatus();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (!isGA || type === 'RDA' || user?.role === 'RDA_ADMIN') {
+            getRdaFinalReportNotifications()
+                .then(res => {
+                    const list = res.data || [];
+                    if (list.length > 0) {
+                        const latest = list[0];
+                        setRdaNotice(latest);
+                        const lastNotified = localStorage.getItem('last_notified_rda_report_id');
+                        const notifyText = `GA admin remove your uploaded final report on this "${latest.deleteReason}". check the report and submit it again`;
+
+                        // Browser push notification for RDA officer
+                        if ('Notification' in window) {
+                            if (Notification.permission === 'default') {
+                                Notification.requestPermission().then(perm => {
+                                    if (perm === 'granted' && lastNotified !== latest.id) {
+                                        try {
+                                            new Notification('EDRR: Final Report Removed by GA Admin', {
+                                                body: notifyText,
+                                                icon: '/favicon.ico'
+                                            });
+                                            localStorage.setItem('last_notified_rda_report_id', latest.id);
+                                        } catch {}
+                                    }
+                                });
+                            } else if (Notification.permission === 'granted' && lastNotified !== latest.id) {
+                                try {
+                                    new Notification('EDRR: Final Report Removed by GA Admin', {
+                                        body: notifyText,
+                                        icon: '/favicon.ico'
+                                    });
+                                    localStorage.setItem('last_notified_rda_report_id', latest.id);
+                                } catch {}
+                            }
+                        }
+
+                        // In-dashboard modal alert on RDA login
+                        const sessionDismissed = sessionStorage.getItem('rda_modal_dismissed_' + latest.id);
+                        if (!sessionDismissed) {
+                            setShowRdaModal(true);
+                        }
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [isGA, type, user?.role]);
+
+    useEffect(() => {
+        if (isGA || (type !== 'RDA' && user?.role !== 'RDA_ADMIN')) return;
+
+        const checkCitizenNotifs = () => {
+            getDashboardNotifications({
+                role: 'RDA_ADMIN',
+                userId: user.id || user._id || ''
+            })
+            .then(res => {
+                const list = res.data || [];
+                setCitizenNotifs(list);
+
+                // Browser push notification for RDA officers
+                list.forEach(n => {
+                    const key = 'notified_rda_citizen_report_' + n.id;
+                    if (!localStorage.getItem(key)) {
+                        if ('Notification' in window) {
+                            if (Notification.permission === 'granted') {
+                                try {
+                                    new Notification(`New Citizen Damage Report · ${n.targetDivision || 'All Divisions'}`, {
+                                        body: n.message || `New citizen report in ${n.location}: ${n.title}`,
+                                        icon: '/favicon.ico'
+                                    });
+                                    localStorage.setItem(key, 'true');
+                                } catch {}
+                            } else if (Notification.permission === 'default') {
+                                Notification.requestPermission().then(p => {
+                                    if (p === 'granted') {
+                                        try {
+                                            new Notification(`New Citizen Damage Report · ${n.targetDivision || 'All Divisions'}`, {
+                                                body: n.message || `New citizen report in ${n.location}: ${n.title}`,
+                                                icon: '/favicon.ico'
+                                            });
+                                            localStorage.setItem(key, 'true');
+                                        } catch {}
+                                    }
+                                });
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(() => {});
+        };
+
+        checkCitizenNotifs();
+        const interval = setInterval(checkCitizenNotifs, 20000);
+        return () => clearInterval(interval);
+    }, [isGA, type, user?.role, user.id]);
 
     const reload = () => {
         Promise.all([getAllReports(), getReportStats()])
@@ -157,6 +272,272 @@ export default function AdminDashboard({ type = 'GA', initialTab = 'overview' })
 
                 {/* Live Alert Announcement Banner (Displayed under main heading and sub heading for non-GA dashboards; suppressed in GA Admin portal) */}
                 {!isGA && <AlertAnnouncementBanner refreshTrigger={announcementTrigger} hideForGA={true} />}
+
+                {/* RDA Specific GA Final Report Removal Alert Banner */}
+                {!isGA && rdaNotice && (
+                    <div style={{
+                        background: '#FFF1F2',
+                        border: '1px solid #FECDD3',
+                        borderLeft: '5px solid #E11D48',
+                        borderRadius: 8,
+                        padding: '14px 18px',
+                        marginBottom: 16,
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: 14,
+                        boxShadow: '0 2px 6px rgba(225,29,72,0.08)'
+                    }}>
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                            <div style={{ fontSize: 22, lineHeight: 1 }}>⚠️</div>
+                            <div>
+                                <div style={{ fontWeight: 700, color: '#9F1239', fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>
+                                    GA Admin Action · Final Report Removed
+                                </div>
+                                <div style={{ fontSize: 14, color: '#881337', fontWeight: 600, lineHeight: 1.5, marginBottom: 6 }}>
+                                    GA admin remove your uploaded final report on this &ldquo;{rdaNotice.deleteReason}&rdquo;. check the report and submit it again
+                                </div>
+                                <div style={{ fontSize: 12, color: '#BE123C', display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span><strong>File:</strong> {rdaNotice.title || rdaNotice.fileName}</span>
+                                    {rdaNotice.deletedAt && <span><strong>Deleted on:</strong> {formatDate(rdaNotice.deletedAt)}</span>}
+                                    <Link to="/admin-rda/final" style={{ color: '#9F1239', textDecoration: 'underline', fontWeight: 700 }}>
+                                        Go to Final Reports &amp; Re-submit →
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setRdaNotice(null)}
+                            title="Dismiss banner"
+                            style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#9F1239',
+                                fontSize: 18,
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                padding: '2px 6px',
+                                lineHeight: 1
+                            }}
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
+
+                {/* RDA Citizen Damage Report Notifications Banner */}
+                {!isGA && citizenNotifs.length > 0 && (
+                    <div style={{
+                        background: '#ECFDF5',
+                        border: '1px solid #A7F3D0',
+                        borderLeft: '5px solid #059669',
+                        borderRadius: 8,
+                        padding: '14px 18px',
+                        marginBottom: 16,
+                        boxShadow: '0 2px 6px rgba(5,150,105,0.08)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 18 }}>📢</span>
+                                <strong style={{ color: '#065F46', fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    New Citizen Damage Reports ({citizenNotifs.length})
+                                </strong>
+                            </div>
+                            <Link
+                                to="/admin-rda/public-reports"
+                                style={{
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color: '#065F46',
+                                    textDecoration: 'underline'
+                                }}
+                            >
+                                Review All in Citizen Reports →
+                            </Link>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {citizenNotifs.slice(0, 3).map(notif => (
+                                <div
+                                    key={notif.id}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        justifyContent: 'space-between',
+                                        gap: 12,
+                                        background: '#FFFFFF',
+                                        padding: '10px 14px',
+                                        borderRadius: 6,
+                                        border: '1px solid #D1FAE5'
+                                    }}
+                                >
+                                    <div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#065F46', marginBottom: 2 }}>
+                                            {notif.title}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: '#047857', lineHeight: 1.4 }}>
+                                            {notif.message}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: '#10B981', marginTop: 4, display: 'flex', gap: 12 }}>
+                                            <span>Division: <strong>{notif.targetDivision || 'District Wide'}</strong></span>
+                                            <span>Location: <strong>{notif.location || 'N/A'}</strong></span>
+                                            <span>Submitter: <strong>{notif.reporterName || 'Citizen'}</strong></span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                        <Link
+                                            to="/admin-rda/public-reports"
+                                            style={{
+                                                fontSize: 11,
+                                                padding: '4px 10px',
+                                                background: '#235347',
+                                                color: '#FFF',
+                                                borderRadius: 4,
+                                                textDecoration: 'none',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            Inspect
+                                        </Link>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCitizenNotifs(prev => prev.filter(n => n.id !== notif.id));
+                                                dismissNotification(notif.id).catch(() => {});
+                                            }}
+                                            title="Dismiss notification"
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: '#888',
+                                                fontSize: 16,
+                                                cursor: 'pointer',
+                                                padding: '2px 6px',
+                                                lineHeight: 1
+                                            }}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* RDA Login Alert Modal */}
+                {!isGA && showRdaModal && rdaNotice && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(11, 43, 38, 0.65)',
+                        backdropFilter: 'blur(3px)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 99999,
+                        padding: 16
+                    }}>
+                        <div style={{
+                            background: '#FFFFFF',
+                            borderRadius: 14,
+                            maxWidth: 520,
+                            width: '100%',
+                            padding: 24,
+                            boxShadow: '0 20px 30px rgba(0,0,0,0.25)',
+                            border: '2px solid #E11D48'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                                <div style={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: '50%',
+                                    background: '#FFE4E6',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: 22,
+                                    flexShrink: 0
+                                }}>
+                                    ⚠️
+                                </div>
+                                <div>
+                                    <h3 style={{ margin: 0, color: '#9F1239', fontSize: 17, fontWeight: 800 }}>
+                                        Attention RDA / DMC Officer
+                                    </h3>
+                                    <p style={{ margin: '2px 0 0', fontSize: 12, color: '#666' }}>
+                                        Notice received from Government Agent (GA) Administrator
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div style={{
+                                background: '#FFF1F2',
+                                border: '1px solid #FECDD3',
+                                borderRadius: 8,
+                                padding: '14px 16px',
+                                marginBottom: 16
+                            }}>
+                                <p style={{ margin: 0, color: '#881337', fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>
+                                    GA admin remove your uploaded final report on this &ldquo;{rdaNotice.deleteReason}&rdquo;. check the report and submit it again
+                                </p>
+                                <div style={{ marginTop: 10, fontSize: 12, color: '#9F1239', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                                    <span><strong>Report:</strong> {rdaNotice.title || rdaNotice.fileName}</span>
+                                    {rdaNotice.deletedAt && <span><strong>Removed:</strong> {formatDate(rdaNotice.deletedAt)}</span>}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        sessionStorage.setItem('rda_modal_dismissed_' + rdaNotice.id, 'true');
+                                        setShowRdaModal(false);
+                                    }}
+                                    style={{
+                                        padding: '9px 16px',
+                                        borderRadius: 7,
+                                        border: '1px solid #CCC',
+                                        background: '#F9FAFB',
+                                        color: '#333',
+                                        cursor: 'pointer',
+                                        fontSize: 13,
+                                        fontWeight: 600
+                                    }}
+                                >
+                                    Dismiss
+                                </button>
+                                <Link
+                                    to="/admin-rda/final"
+                                    onClick={() => {
+                                        sessionStorage.setItem('rda_modal_dismissed_' + rdaNotice.id, 'true');
+                                        setShowRdaModal(false);
+                                    }}
+                                    style={{
+                                        padding: '9px 18px',
+                                        borderRadius: 7,
+                                        border: 'none',
+                                        background: '#235347',
+                                        color: '#FFFFFF',
+                                        cursor: 'pointer',
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        textDecoration: 'none',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}
+                                >
+                                    Review &amp; Re-Submit →
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div style={S.tabBar}>
                     {[

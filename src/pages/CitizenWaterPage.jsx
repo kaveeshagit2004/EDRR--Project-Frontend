@@ -50,17 +50,17 @@ export default function CitizenWaterPage() {
     icon: '️',
     title: 'Minor Flood Warning Active',
     desc: `${minorStations.length} station(s) (${minorStations.map(s => s.locationName).join(', ')}) reached Minor Flood Level. Low-lying terrain on notice.`,
-    bg: '#ffedd5',
-    border: '#ea580c',
-    textColor: '#9a3412',
+    bg: '#FFF9D2',
+    border: '#FFCE1B',
+    textColor: '#714B00',
     label: 'MINOR FLOOD'
   } : hasAlert ? {
     icon: '',
     title: 'Water Level Alert Active',
     desc: `${alertStations.length} station(s) (${alertStations.map(s => s.locationName).join(', ')}) reached Alert Water Level. Sluice gate monitoring advised.`,
-    bg: '#fef9c3',
-    border: '#eab308',
-    textColor: '#854d0e',
+    bg: '#E8EEF9',
+    border: '#00008B',
+    textColor: '#00008B',
     label: 'ALERT LEVEL'
   } : {
     icon: '',
@@ -119,20 +119,20 @@ export default function CitizenWaterPage() {
           <strong style={{ fontSize: 22, color: '#dc2626' }}>{majorStations.length}</strong>
         </div>
 
-        <div style={{ background: '#ffedd5', border: '1.5px solid #ea580c', borderRadius: 8, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ background: '#FFF9D2', border: '1.5px solid #FFCE1B', borderRadius: 8, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#9a3412' }}>️ MINOR FLOOD </div>
-            <div style={{ fontSize: 12, color: '#9a3412' }}>Warning Threshold</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#714B00' }}>️ MINOR FLOOD </div>
+            <div style={{ fontSize: 12, color: '#714B00' }}>Warning Threshold</div>
           </div>
-          <strong style={{ fontSize: 22, color: '#ea580c' }}>{minorStations.length}</strong>
+          <strong style={{ fontSize: 22, color: '#714B00' }}>{minorStations.length}</strong>
         </div>
 
-        <div style={{ background: '#fef9c3', border: '1.5px solid #eab308', borderRadius: 8, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ background: '#E8EEF9', border: '1.5px solid #00008B', borderRadius: 8, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#854d0e' }}> ALERT LEVEL </div>
-            <div style={{ fontSize: 12, color: '#854d0e' }}>Advisory Threshold</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#00008B' }}> ALERT LEVEL </div>
+            <div style={{ fontSize: 12, color: '#00008B' }}>Advisory Threshold</div>
           </div>
-          <strong style={{ fontSize: 22, color: '#ca8a04' }}>{alertStations.length}</strong>
+          <strong style={{ fontSize: 22, color: '#00008B' }}>{alertStations.length}</strong>
         </div>
 
         <div style={{ background: '#DAF1DE', border: '1.5px solid #8EB69B', borderRadius: 8, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -316,13 +316,13 @@ export default function CitizenWaterPage() {
                     <span style={{ fontSize: '0.72rem', color: '#991b1b', fontWeight: 700, display: 'block' }}>Major Flood</span>
                     <strong style={{ fontSize: '0.95rem', color: '#991b1b' }}>{major} m</strong>
                   </div>
-                  <div style={{ background: '#ffedd5', padding: '8px 10px', borderRadius: 6, border: '1px solid #fed7aa' }}>
-                    <span style={{ fontSize: '0.72rem', color: '#9a3412', fontWeight: 700, display: 'block' }}>Minor Flood</span>
-                    <strong style={{ fontSize: '0.95rem', color: '#9a3412' }}>{minor} m</strong>
+                  <div style={{ background: '#FFF9D2', padding: '8px 10px', borderRadius: 6, border: '1px solid #FFCE1B' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#714B00', fontWeight: 700, display: 'block' }}>Minor Flood</span>
+                    <strong style={{ fontSize: '0.95rem', color: '#714B00' }}>{minor} m</strong>
                   </div>
-                  <div style={{ background: '#fef9c3', padding: '8px 10px', borderRadius: 6, border: '1px solid #fef08a' }}>
-                    <span style={{ fontSize: '0.72rem', color: '#854d0e', fontWeight: 700, display: 'block' }}>Alert Level</span>
-                    <strong style={{ fontSize: '0.95rem', color: '#854d0e' }}>{alert} m</strong>
+                  <div style={{ background: '#E8EEF9', padding: '8px 10px', borderRadius: 6, border: '1px solid #00008B' }}>
+                    <span style={{ fontSize: '0.72rem', color: '#00008B', fontWeight: 700, display: 'block' }}>Alert Level</span>
+                    <strong style={{ fontSize: '0.95rem', color: '#00008B' }}>{alert} m</strong>
                   </div>
                   <div style={{ background: '#f3f4f6', padding: '8px 10px', borderRadius: 6, border: '1px solid #e5e7eb' }}>
                     <span style={{ fontSize: '0.72rem', color: '#4b5563', display: 'block' }}>Trend</span>

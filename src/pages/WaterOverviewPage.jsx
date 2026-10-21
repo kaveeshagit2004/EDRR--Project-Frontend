@@ -58,15 +58,15 @@ export default function WaterOverviewPage() {
                         <div style={{ fontSize: 12, color: '#235347', marginTop: 2, fontWeight: 700 }}>Normal</div>
                         <div style={{ fontSize: 11, color: '#235347' }}>Safe Water Flow</div>
                     </div>
-                    <div style={{ background: '#fef9c3', borderRadius: 10, padding: '14px 10px', textAlign: 'center', boxShadow: '0 2px 8px rgba(11,43,38,0.10)', border: '1px solid #eab308', borderTop: '4px solid #eab308' }}>
-                        <div style={{ fontSize: 26, fontWeight: 800, color: '#854d0e' }}>{alertCount}</div>
-                        <div style={{ fontSize: 12, color: '#854d0e', marginTop: 2, fontWeight: 700 }}>Alert Level</div>
-                        <div style={{ fontSize: 11, color: '#854d0e' }}>Yellow Watch</div>
+                    <div style={{ background: '#E8EEF9', borderRadius: 10, padding: '14px 10px', textAlign: 'center', boxShadow: '0 2px 8px rgba(11,43,38,0.10)', border: '1px solid #00008B', borderTop: '4px solid #00008B' }}>
+                        <div style={{ fontSize: 26, fontWeight: 800, color: '#00008B' }}>{alertCount}</div>
+                        <div style={{ fontSize: 12, color: '#00008B', marginTop: 2, fontWeight: 700 }}>Alert Level</div>
+                        <div style={{ fontSize: 11, color: '#00008B' }}>Blue Watch</div>
                     </div>
-                    <div style={{ background: '#ffedd5', borderRadius: 10, padding: '14px 10px', textAlign: 'center', boxShadow: '0 2px 8px rgba(11,43,38,0.10)', border: '1px solid #ea580c', borderTop: '4px solid #ea580c' }}>
-                        <div style={{ fontSize: 26, fontWeight: 800, color: '#ea580c' }}>{minorCount}</div>
-                        <div style={{ fontSize: 12, color: '#9a3412', marginTop: 2, fontWeight: 700 }}>Minor Flood</div>
-                        <div style={{ fontSize: 11, color: '#9a3412' }}>Orange Warning</div>
+                    <div style={{ background: '#FFF9D2', borderRadius: 10, padding: '14px 10px', textAlign: 'center', boxShadow: '0 2px 8px rgba(11,43,38,0.10)', border: '1px solid #FFCE1B', borderTop: '4px solid #FFCE1B' }}>
+                        <div style={{ fontSize: 26, fontWeight: 800, color: '#714B00' }}>{minorCount}</div>
+                        <div style={{ fontSize: 12, color: '#714B00', marginTop: 2, fontWeight: 700 }}>Minor Flood</div>
+                        <div style={{ fontSize: 11, color: '#714B00' }}>Yellow Warning</div>
                     </div>
                     <div style={{ background: '#fee2e2', borderRadius: 10, padding: '14px 10px', textAlign: 'center', boxShadow: '0 2px 8px rgba(11,43,38,0.10)', border: '1px solid #dc2626', borderTop: '4px solid #dc2626' }}>
                         <div style={{ fontSize: 26, fontWeight: 800, color: '#dc2626' }}>{majorCount}</div>
@@ -164,16 +164,16 @@ export default function WaterOverviewPage() {
                                     <div style={{ fontSize: 18, fontWeight: 800, color: '#0B2B26', marginTop: 2 }}>{wl.currentLevel} m</div>
                                 </div>
                                 <div style={{ background: '#fee2e2', padding: '10px 12px', borderRadius: 8, border: '1px solid #ef9a9a' }}>
-                                    <div style={{ fontSize: 11, color: '#991b1b', fontWeight: 700 }}>Major Flood (Red)</div>
+                                    <div style={{ fontSize: 11, color: '#991b1b', fontWeight: 700 }}>Major Flood </div>
                                     <div style={{ fontSize: 18, fontWeight: 800, color: '#dc2626', marginTop: 2 }}>{majorLevelVal} m</div>
                                 </div>
-                                <div style={{ background: '#ffedd5', padding: '10px 12px', borderRadius: 8, border: '1px solid #ffcc80' }}>
-                                    <div style={{ fontSize: 11, color: '#9a3412', fontWeight: 700 }}>Minor Flood (Orange)</div>
-                                    <div style={{ fontSize: 18, fontWeight: 800, color: '#ea580c', marginTop: 2 }}>{minorLevelVal} m</div>
+                                <div style={{ background: '#FFF9D2', padding: '10px 12px', borderRadius: 8, border: '1px solid #FFCE1B' }}>
+                                    <div style={{ fontSize: 11, color: '#714B00', fontWeight: 700 }}>Minor Flood</div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: '#714B00', marginTop: 2 }}>{minorLevelVal} m</div>
                                 </div>
-                                <div style={{ background: '#fef9c3', padding: '10px 12px', borderRadius: 8, border: '1px solid #fff59d' }}>
-                                    <div style={{ fontSize: 11, color: '#854d0e', fontWeight: 700 }}>Alert Level (Yellow)</div>
-                                    <div style={{ fontSize: 18, fontWeight: 800, color: '#854d0e', marginTop: 2 }}>{alertLevelVal} m</div>
+                                <div style={{ background: '#E8EEF9', padding: '10px 12px', borderRadius: 8, border: '1px solid #00008B' }}>
+                                    <div style={{ fontSize: 11, color: '#00008B', fontWeight: 700 }}>Alert Level</div>
+                                    <div style={{ fontSize: 18, fontWeight: 800, color: '#00008B', marginTop: 2 }}>{alertLevelVal} m</div>
                                 </div>
                                 <div style={{ background: '#FFFFFF', padding: '10px 12px', borderRadius: 8, border: '1px solid #8EB69B' }}>
                                     <div style={{ fontSize: 11, color: '#235347', fontWeight: 600 }}>Trend</div>

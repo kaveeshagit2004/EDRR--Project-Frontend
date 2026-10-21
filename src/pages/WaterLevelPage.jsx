@@ -270,28 +270,28 @@ export default function WaterLevelPage() {
                                     </div>
                                 </div>
 
-                                <div style={{ background: '#DAF1DE', borderRadius: 10, padding: '16px 18px', border: '1px solid #ffcc80', borderTop: '4px solid #ea580c', boxShadow: '0 2px 8px rgba(11,43,38,0.06)' }}>
-                                    <div style={{ fontSize: 12, color: '#9a3412', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+                                <div style={{ background: '#DAF1DE', borderRadius: 10, padding: '16px 18px', border: '1px solid #FFCE1B', borderTop: '4px solid #FFCE1B', boxShadow: '0 2px 8px rgba(11,43,38,0.06)' }}>
+                                    <div style={{ fontSize: 12, color: '#714B00', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
                                         <span>Minor Flood Level</span>
 
                                     </div>
-                                    <div style={{ fontSize: 26, fontWeight: 800, color: '#ea580c', marginTop: 4 }}>
+                                    <div style={{ fontSize: 26, fontWeight: 800, color: '#714B00', marginTop: 4 }}>
                                         {activeRecord?.minorFloodLevel != null ? `${activeRecord.minorFloodLevel} m` : '-'}
                                     </div>
-                                    <div style={{ fontSize: 11, color: '#9a3412', marginTop: 4 }}>
+                                    <div style={{ fontSize: 11, color: '#714B00', marginTop: 4 }}>
                                         Warning Flood Threshold
                                     </div>
                                 </div>
 
-                                <div style={{ background: '#DAF1DE', borderRadius: 10, padding: '16px 18px', border: '1px solid #fff59d', borderTop: '4px solid #eab308', boxShadow: '0 2px 8px rgba(11,43,38,0.06)' }}>
-                                    <div style={{ fontSize: 12, color: '#854d0e', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+                                <div style={{ background: '#DAF1DE', borderRadius: 10, padding: '16px 18px', border: '1px solid #00008B', borderTop: '4px solid #00008B', boxShadow: '0 2px 8px rgba(11,43,38,0.06)' }}>
+                                    <div style={{ fontSize: 12, color: '#00008B', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
                                         <span>Alert Water Level</span>
 
                                     </div>
-                                    <div style={{ fontSize: 26, fontWeight: 800, color: '#854d0e', marginTop: 4 }}>
+                                    <div style={{ fontSize: 26, fontWeight: 800, color: '#00008B', marginTop: 4 }}>
                                         {activeRecord?.alertWaterLevel != null ? `${activeRecord.alertWaterLevel} m` : '-'}
                                     </div>
-                                    <div style={{ fontSize: 11, color: '#854d0e', marginTop: 4 }}>
+                                    <div style={{ fontSize: 11, color: '#00008B', marginTop: 4 }}>
                                         Vigilance Alert Threshold
                                     </div>
                                 </div>
@@ -348,7 +348,7 @@ export default function WaterLevelPage() {
                                         {/* Current Water Level */}
                                         <div>
                                             <label style={{ fontSize: 12, fontWeight: 700, color: '#0B2B26', display: 'block', marginBottom: 4 }}>
-                                                Water Level (meters) *
+                                               Current Water Level (meters) *
                                             </label>
                                             <input
                                                 type="number"
@@ -404,7 +404,7 @@ export default function WaterLevelPage() {
                                                 }}
                                             />
                                             <span style={{ fontSize: 11, color: '#991b1b', marginTop: 3, display: 'block' }}>
-                                                Level &ge; this triggers <strong>RED</strong> Alert
+                                                Level &ge; this triggers <strong></strong> Alert
                                             </span>
                                         </div>
 

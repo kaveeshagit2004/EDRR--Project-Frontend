@@ -1,5 +1,5 @@
 // Water Level Alert Classification
-// Threshold hierarchy: Alert Water Level (Yellow) < Minor Flood Level (Orange) < Major Flood Level (Red)
+// Threshold hierarchy: Normal (Green) < Alert Water Level (Blue: #00008B) < Minor Flood Level (Yellow: #FFCE1B) < Major Flood Level (Red: #dc2626)
 
 export const WATER_ALERT_COLORS = {
     MAJOR: {
@@ -18,24 +18,24 @@ export const WATER_ALERT_COLORS = {
         status: 'MINOR',
         label: 'MINOR FLOOD',
         badgeLabel: '⚠️ MINOR FLOOD',
-        color: '#ea580c',      // Orange
-        bgTint: '#ffedd5',
-        borderColor: '#ea580c',
-        textColor: '#9a3412',
-        badgeBg: '#ea580c',
-        badgeText: '#ffffff',
+        color: '#FFCE1B',      // Yellow (#FFCE1B)
+        bgTint: '#FFF9D2',
+        borderColor: '#FFCE1B',
+        textColor: '#714B00',
+        badgeBg: '#FFCE1B',
+        badgeText: '#000000',
         icon: '⚠️',
     },
     ALERT: {
         status: 'ALERT',
         label: 'ALERT LEVEL',
         badgeLabel: '⚡ ALERT LEVEL',
-        color: '#eab308',      // Yellow
-        bgTint: '#fef9c3',
-        borderColor: '#eab308',
-        textColor: '#854d0e',
-        badgeBg: '#eab308',
-        badgeText: '#000000',
+        color: '#00008B',      // Blue (#00008B)
+        bgTint: '#E8EEF9',
+        borderColor: '#00008B',
+        textColor: '#00008B',
+        badgeBg: '#00008B',
+        badgeText: '#ffffff',
         icon: '⚡',
     },
     NORMAL: {

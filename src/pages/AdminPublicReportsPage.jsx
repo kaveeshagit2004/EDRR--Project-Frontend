@@ -126,13 +126,17 @@ export default function AdminPublicReportsPage() {
     const canDelete = canDeletePublicReports(user);
 
     const handleDelete = async (r) => {
+        if (!canDeletePublicReports(user, r)) {
+            alert('Permission Denied: Rural Division Officers cannot delete citizen reports until an RDA/DMC officer has reviewed and marked them as viewed.');
+            return;
+        }
         const reportTitle = r.title || r.reportNumber || `#${r.id}`;
         if (!window.confirm(`Are you sure you want to delete public report "${reportTitle}"?`)) return;
         try {
-            await deletePublicReport(r.id);
+            await deletePublicReport(r.id, user.email);
             load();
-        } catch {
-            alert('Failed to delete report');
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to delete report');
         }
     };
 
@@ -177,7 +181,7 @@ export default function AdminPublicReportsPage() {
                                         <strong style={{ color: '#0B2B26', fontSize: 14 }}>Rural Officer Division: {officerDivision}</strong>
                                     </div>
                                     <p style={{ margin: '3px 0 0', fontSize: 12, color: '#235347' }}>
-                                        Only public damage reports submitted for your assigned division are displayed in this view.
+                                        Only public damage reports submitted for your assigned division are displayed in this view. Citizen reports can only be deleted after they are reviewed and marked as viewed by an RDA/DMC officer.
                                     </p>
                                 </div>
                                 <span style={{
@@ -473,17 +477,7 @@ export default function AdminPublicReportsPage() {
                                                             }}>
                                                                 ✓ Marked as Viewed by RDA Admin {r.viewedByName ? `(${r.viewedByName})` : ''}
                                                             </span>
-                                                            <button
-                                                                style={{
-                                                                    ...S.btnGhost,
-                                                                    fontSize: 12,
-                                                                    padding: '5px 10px'
-                                                                }}
-                                                                onClick={() => handleMarkViewed(r.id, false)}
-                                                                title="Undo viewed status"
-                                                            >
-                                                                Undo
-                                                            </button>
+
                                                         </div>
                                                     );
                                                 } else {
@@ -502,11 +496,44 @@ export default function AdminPublicReportsPage() {
                                             })()}
                                         </div>
 
-                                        {canDelete && (
-                                            <button style={S.btnDelete} onClick={() => handleDelete(r)}>
-                                                Delete Report
-                                            </button>
-                                        )}
+                                        {canDelete && (() => {
+                                            const isViewedByRda = canDeletePublicReports(user, r);
+                                            if (isViewedByRda) {
+                                                return (
+                                                    <button
+                                                        style={S.btnDelete}
+                                                        onClick={() => handleDelete(r)}
+                                                        title="Delete this citizen report (Move to recycle bin)"
+                                                    >
+                                                        Delete Report
+                                                    </button>
+                                                );
+                                            }
+                                            return (
+                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                                    <button
+                                                        style={{
+                                                            ...S.btnDelete,
+                                                            background: '#F1F5F9',
+                                                            color: '#94A3B8',
+                                                            border: '1px solid #CBD5E1',
+                                                            cursor: 'not-allowed',
+                                                            opacity: 0.9,
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: 4
+                                                        }}
+                                                        disabled={true}
+                                                        title="Rural Division Officers cannot delete citizen reports until an RDA/DMC officer reviews and marks them as viewed"
+                                                    >
+                                                        <span>🔒 Delete Locked</span>
+                                                    </button>
+                                                    <span style={{ fontSize: 11, color: '#D97706', fontStyle: 'italic', fontWeight: 500 }}>
+                                                        (Awaiting RDA/DMC review before deletion)
+                                                    </span>
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             ))

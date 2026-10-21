@@ -72,7 +72,7 @@ export const createPublicReport         = (data)       => {
 };
 export const updatePublicReportStatus   = (id, s, n)   => api.put(`/public-reports/${id}/status`, { status: s, adminNotes: n });
 export const updatePublicReportProgress = (id, p)     => api.put(`/public-reports/${id}/progress`, { progress: p });
-export const deletePublicReport         = (id)         => api.delete(`/public-reports/${id}`);
+export const deletePublicReport         = (id, userEmail) => api.delete(`/public-reports/${id}`, { params: { userEmail } });
 export const restorePublicReport        = (id)         => api.put(`/public-reports/${id}/restore`);
 export const permanentlyDeletePublicReport = (id)      => api.delete(`/public-reports/${id}/permanent`);
 export const getPublicReportStats       = ()           => api.get('/public-reports/stats');
@@ -87,11 +87,11 @@ export const updateWaterLevel    = (id, data)   => api.put(`/water-levels/${id}`
 export const deleteWaterLevel    = (id)         => api.delete(`/water-levels/${id}`);
 export const getCriticalWaterLevels = ()        => api.get('/water-levels/critical');
 
-// ── USER MANAGEMENT ───────────────────────────────────
-export const getOfficers   = ()     => api.get('/users/officers');
-export const getRuralDivisions = () => api.get('/users/rural-divisions');
-export const getWaterStations = () => api.get('/users/water-stations');
-export const addOfficer    = (data) => {
+// ── USER MANAGEMENT & RECYCLE BIN ─────────────────────
+export const getOfficers               = ()           => api.get('/users/officers');
+export const getRuralDivisions         = ()           => api.get('/users/rural-divisions');
+export const getWaterStations          = ()           => api.get('/users/water-stations');
+export const addOfficer                = (data)       => {
     if (data instanceof FormData) {
         return api.post('/users/officers', data, {
             headers: { 'Content-Type': 'multipart/form-data' }
@@ -99,14 +99,31 @@ export const addOfficer    = (data) => {
     }
     return api.post('/users/officers', data);
 };
-export const deleteOfficer = (id)   => api.delete(`/users/officers/${id}`);
+export const deleteOfficer             = (id, reason) => api.delete(`/users/officers/${id}`, { data: { reason }, params: { reason } });
+export const getDeletedOfficers        = ()           => api.get('/users/recycle-bin');
+export const restoreOfficer            = (id)         => api.put(`/users/officers/${id}/restore`);
+export const permanentlyDeleteOfficer  = (id)         => api.delete(`/users/officers/${id}/permanent`);
+export const updateProfilePhoto        = (data)       => {
+    if (data instanceof FormData) {
+        return api.post('/users/profile-photo', data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    }
+    return api.post('/users/profile-photo', data);
+};
 
 // ── FINAL REPORTS ─────────────────────────────────────
-export const getAllFinalReports  = ()     => api.get('/final-reports');
-export const uploadFinalReport   = (data) => api.post('/final-reports', data, {
+export const getAllFinalReports          = ()     => api.get('/final-reports');
+export const getDeletedFinalReports     = ()     => api.get('/final-reports/recycle-bin');
+export const getRdaFinalReportNotifications = () => api.get('/final-reports/rda-notifications');
+export const uploadFinalReport           = (data) => api.post('/final-reports', data, {
     headers: { 'Content-Type': 'multipart/form-data' }
 });
-export const deleteFinalReport   = (id)   => api.delete(`/final-reports/${id}`);
+export const deleteFinalReport           = (id, reason, meta = {}) => api.delete(`/final-reports/${id}`, {
+    params: { reason, ...meta }
+});
+export const restoreFinalReport         = (id)   => api.put(`/final-reports/${id}/restore`);
+export const permanentlyDeleteFinalReport = (id) => api.delete(`/final-reports/${id}/permanent`);
 
 // ── ALERT ANNOUNCEMENTS (GA ADMIN BROADCASTS) ─────────
 export const getAllAnnouncements   = ()     => api.get('/announcements');
@@ -120,5 +137,10 @@ export const createAnnouncement    = (data) => {
     return api.post('/announcements', data);
 };
 export const deleteAnnouncement    = (id, role = 'GA_ADMIN') => api.delete(`/announcements/${id}?userRole=${encodeURIComponent(role)}`);
+
+// ── NOTIFICATIONS (CITIZEN REPORTS & TARGETED ALERTS) ──
+export const getDashboardNotifications = (params) => api.get('/notifications/dashboard', { params });
+export const markNotificationRead       = (id, userId) => api.put(`/notifications/${id}/read`, null, { params: { userId } });
+export const dismissNotification       = (id) => api.put(`/notifications/${id}/dismiss`);
 
 export default api;

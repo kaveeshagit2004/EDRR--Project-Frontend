@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
-import { getAllReports, createReport, deleteReport } from '../api/api';
+import { Link } from 'react-router-dom';
+import {
+    getAllReports,
+    createReport,
+    deleteReport,
+    getDashboardNotifications,
+    dismissNotification
+} from '../api/api';
 import { canDeleteReports } from '../utils/reportPermissions';
 import RecoveryProgressBar from '../components/RecoveryProgressBar';
 import AlertAnnouncementBanner from '../components/AlertAnnouncementBanner';
@@ -21,6 +28,7 @@ export default function OfficerDashboard({ initialTab = 'reports' }) {
     const [loading, setLoading] = useState(true);
     const [submitMsg, setSubmitMsg] = useState('');
     const [selectedPhotos, setSelectedPhotos] = useState(null);
+    const [citizenNotifs, setCitizenNotifs] = useState([]);
     const [photoIndex, setPhotoIndex] = useState(0);
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const currentUserId = user.id || user._id || '';
@@ -44,6 +52,62 @@ export default function OfficerDashboard({ initialTab = 'reports' }) {
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
+
+    useEffect(() => {
+        if (user.role !== 'RURAL_OFFICER') return;
+
+        const checkNotifications = () => {
+            getDashboardNotifications({
+                role: 'RURAL_OFFICER',
+                divisionName: user.divisionName || '',
+                userId: currentUserId
+            })
+            .then(res => {
+                const list = res.data || [];
+                setCitizenNotifs(list);
+
+                // Browser push notifications for new citizen reports
+                list.forEach(n => {
+                    const key = 'notified_citizen_report_' + n.id;
+                    if (!localStorage.getItem(key)) {
+                        if ('Notification' in window) {
+                            if (Notification.permission === 'granted') {
+                                try {
+                                    new Notification(`New Citizen Damage Report · ${n.targetDivision || 'Your Division'}`, {
+                                        body: n.message || `New citizen report in ${n.location}: ${n.title}`,
+                                        icon: '/favicon.ico'
+                                    });
+                                    localStorage.setItem(key, 'true');
+                                } catch {}
+                            } else if (Notification.permission === 'default') {
+                                Notification.requestPermission().then(p => {
+                                    if (p === 'granted') {
+                                        try {
+                                            new Notification(`New Citizen Damage Report · ${n.targetDivision || 'Your Division'}`, {
+                                                body: n.message || `New citizen report in ${n.location}: ${n.title}`,
+                                                icon: '/favicon.ico'
+                                            });
+                                            localStorage.setItem(key, 'true');
+                                        } catch {}
+                                    }
+                                });
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(() => {});
+        };
+
+        checkNotifications();
+        const interval = setInterval(checkNotifications, 20000);
+        return () => clearInterval(interval);
+    }, [user.role, user.divisionName, currentUserId]);
+
+    const handleDismissNotif = (notifId) => {
+        setCitizenNotifs(prev => prev.filter(n => n.id !== notifId));
+        dismissNotification(notifId).catch(() => {});
+    };
 
     const reload = () => getAllReports().then(r => setReports(r.data)).catch(console.error);
 
@@ -287,6 +351,101 @@ export default function OfficerDashboard({ initialTab = 'reports' }) {
 
                 {/* GA Admin Official Alert Announcement Banner (Displayed under main heading and sub heading) */}
                 <AlertAnnouncementBanner />
+
+                {/* Citizen Damage Report Notifications Scoped to this Officer's Division */}
+                {citizenNotifs.length > 0 && (
+                    <div style={{
+                        background: '#E8F5E9',
+                        border: '1px solid #A5D6A7',
+                        borderLeft: '5px solid #2E7D32',
+                        borderRadius: 8,
+                        padding: '14px 18px',
+                        marginBottom: 16,
+                        boxShadow: '0 2px 6px rgba(46,125,50,0.1)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 18 }}>📢</span>
+                                <strong style={{ color: '#1B5E20', fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    Citizen Damage Report Notifications {user.divisionName ? `· ${user.divisionName} Division` : ''} ({citizenNotifs.length})
+                                </strong>
+                            </div>
+                            <Link
+                                to="/officer/public-reports"
+                                style={{
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color: '#1B5E20',
+                                    textDecoration: 'underline'
+                                }}
+                            >
+                                View in Citizen Reports →
+                            </Link>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {citizenNotifs.slice(0, 3).map(notif => (
+                                <div
+                                    key={notif.id}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        justifyContent: 'space-between',
+                                        gap: 12,
+                                        background: '#FFFFFF',
+                                        padding: '10px 14px',
+                                        borderRadius: 6,
+                                        border: '1px solid #C8E6C9'
+                                    }}
+                                >
+                                    <div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#1B5E20', marginBottom: 2 }}>
+                                            {notif.title}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: '#2E7D32', lineHeight: 1.4 }}>
+                                            {notif.message}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: '#558B2F', marginTop: 4 }}>
+                                            Location: <strong>{notif.location || 'N/A'}</strong> · Submitter: <strong>{notif.reporterName || 'Citizen'}</strong>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                        <Link
+                                            to="/officer/public-reports"
+                                            style={{
+                                                fontSize: 11,
+                                                padding: '4px 10px',
+                                                background: '#235347',
+                                                color: '#FFF',
+                                                borderRadius: 4,
+                                                textDecoration: 'none',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            Review
+                                        </Link>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDismissNotif(notif.id)}
+                                            title="Dismiss notification"
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: '#888',
+                                                fontSize: 16,
+                                                cursor: 'pointer',
+                                                padding: '2px 6px',
+                                                lineHeight: 1
+                                            }}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 <div style={S.tabBar}>
                     {[['reports',' My Reports'],['new',' Report Damage']].map(([k,l])=>(

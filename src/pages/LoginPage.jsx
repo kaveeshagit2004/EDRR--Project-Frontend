@@ -59,7 +59,7 @@ export default function LoginPage() {
         <Link to="/citizen" className="auth-back-link">← Back to Public View</Link>
         <div className="auth-brand-copy">
           <div className="auth-system-label">OFFICIAL ENVIRONMENTAL RESPONSE PLATFORM</div>
-          <h1>Environmental Damage<br/><span>Reporting &amp; Recovery</span></h1>
+          <h1>PROTECT LK.</h1>
           <p>A unified web portal for environmental reporting, flood monitoring and recovery coordination.</p>
           <div className="auth-location-badge">Matara District, Sri Lanka</div>
         </div>

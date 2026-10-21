@@ -189,12 +189,12 @@ body,.public-page-shell,.dashboard-with-sidebar,.citizen-home-page,.edrr-dashboa
 .report-progress-track,.side-water-track,.recovery-stepper>b,.river-level-track{background:var(--green-500)!important}
 .report-progress-track div,.side-water-track div,.recovery-stepper>b.done,.water-progress-fill,.river-level-fill{background:var(--green-700)!important}
 .water-progress-fill.major, .side-water-track div.major, .side-water-track .major { background: #dc2626 !important; }
-.water-progress-fill.minor, .side-water-track div.minor, .side-water-track .minor { background: #ea580c !important; }
-.water-progress-fill.alert, .side-water-track div.alert, .side-water-track .alert { background: #eab308 !important; }
+.water-progress-fill.minor, .side-water-track div.minor, .side-water-track .minor { background: #FFCE1B !important; }
+.water-progress-fill.alert, .side-water-track div.alert, .side-water-track .alert { background: #00008B !important; }
 .water-progress-fill.normal, .side-water-track div.normal, .side-water-track .normal { background: #235347 !important; }
 .status-pill.status-major, .status-pill.status-critical { background: #dc2626 !important; color: #ffffff !important; }
-.status-pill.status-minor, .status-pill.status-warning { background: #ea580c !important; color: #ffffff !important; }
-.status-pill.status-alert { background: #eab308 !important; color: #000000 !important; }
+.status-pill.status-minor, .status-pill.status-warning { background: #FFCE1B !important; color: #000000 !important; }
+.status-pill.status-alert { background: #00008B !important; color: #ffffff !important; }
 .status-pill.status-normal { background: #235347 !important; color: #DAF1DE !important; }
 .dashboard-report-photo>span{background:var(--green-800)!important;color:var(--green-50)!important}
 .photo-modal-card img{background:var(--surface-bg)!important}

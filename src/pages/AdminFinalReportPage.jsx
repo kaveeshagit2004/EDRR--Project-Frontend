@@ -1,6 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Sidebar from '../components/Sidebar';
-import { getAllReports, getAllFinalReports, uploadFinalReport, deleteFinalReport } from '../api/api';
+import {
+    getAllReports,
+    getAllFinalReports,
+    getDeletedFinalReports,
+    uploadFinalReport,
+    deleteFinalReport,
+    restoreFinalReport,
+    permanentlyDeleteFinalReport
+} from '../api/api';
+import AlertAnnouncementBanner from '../components/AlertAnnouncementBanner';
 import RecoveryProgressBar from '../components/RecoveryProgressBar';
 import { resolveSidebarNav, AS } from '../utils/adminNav';
 
@@ -59,8 +68,22 @@ export default function AdminFinalReportPage() {
     const [finalReportsList, setFinalReportsList] = useState([]);
     const [loadingFinalReports, setLoadingFinalReports] = useState(true);
 
+    // Recycle bin reports
+    const [deletedReportsList, setDeletedReportsList] = useState([]);
+    const [loadingDeletedReports, setLoadingDeletedReports] = useState(true);
+    const [sideTab, setSideTab] = useState('active'); // 'active' | 'bin'
+
+    // Delete Reason Modal state
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [reportToDelete, setReportToDelete] = useState(null);
+    const [deleteReason, setDeleteReason] = useState('');
+    const [deleteError, setDeleteError] = useState('');
+    const [deletingAction, setDeletingAction] = useState(false);
+    const [actionBusyId, setActionBusyId] = useState(null);
+    const [announcementTrigger, setAnnouncementTrigger] = useState(0);
+
     // Upload state (for RDA Admin)
-    const [uploadDamageType, setUploadDamageType] = useState('');
+    const [uploadTitle, setUploadTitle] = useState('');
     const [uploadFile, setUploadFile] = useState(null);
     const [uploadNotes, setUploadNotes] = useState('');
     const [uploadMsg, setUploadMsg] = useState('');
@@ -69,6 +92,12 @@ export default function AdminFinalReportPage() {
     useEffect(() => {
         loadResolvedReports();
         loadFinalReports();
+        loadDeletedFinalReports();
+
+        // Request browser push notification permission
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+        }
     }, []);
 
     const loadResolvedReports = () => {
@@ -90,10 +119,22 @@ export default function AdminFinalReportPage() {
         }
     };
 
+    const loadDeletedFinalReports = async () => {
+        setLoadingDeletedReports(true);
+        try {
+            const res = await getDeletedFinalReports();
+            setDeletedReportsList(res.data || []);
+        } catch (err) {
+            console.error('Failed to load deleted final reports from MongoDB:', err);
+        } finally {
+            setLoadingDeletedReports(false);
+        }
+    };
+
     const handleUpload = async (e) => {
         e.preventDefault();
         setUploadMsg('');
-        if (!uploadDamageType) { setUploadMsg('error:Select a damage type.'); return; }
+        if (!uploadTitle.trim()) { setUploadMsg('error:Please enter the title of final report.'); return; }
         if (!uploadFile) { setUploadMsg('error:Choose a file to upload.'); return; }
         if (uploadFile.size > 15 * 1024 * 1024) { setUploadMsg('error:File is too large (max 15MB).'); return; }
 
@@ -101,14 +142,15 @@ export default function AdminFinalReportPage() {
         try {
             const fd = new FormData();
             fd.append('file', uploadFile);
-            fd.append('damageType', uploadDamageType);
+            fd.append('damageType', uploadTitle.trim());
+            fd.append('title', uploadTitle.trim());
             fd.append('notes', uploadNotes);
             fd.append('uploadedBy', user.fullName || user.name || 'RDA Officer');
             fd.append('uploadedByRole', user.role || 'RDA_ADMIN');
 
             await uploadFinalReport(fd);
             setUploadFile(null);
-            setUploadDamageType('');
+            setUploadTitle('');
             setUploadNotes('');
             setUploadMsg('success:Final report uploaded successfully to database.');
             await loadFinalReports();
@@ -121,15 +163,70 @@ export default function AdminFinalReportPage() {
         }
     };
 
-    const handleDeleteDoc = async (id, fileName) => {
-        if (!window.confirm(`Are you sure you want to delete the final report "${fileName}"?`)) {
+    // Open deletion modal with mandatory reason prompt
+    const openDeleteModal = (doc) => {
+        setReportToDelete(doc);
+        setDeleteReason('');
+        setDeleteError('');
+        setDeleteModalOpen(true);
+    };
+
+    // Submit soft delete with reason, triggers push notification to RDA/DMC officers
+    const handleConfirmDelete = async (e) => {
+        if (e) e.preventDefault();
+        if (!deleteReason.trim()) {
+            setDeleteError('Please provide a reason: why are you deleting this report?');
             return;
         }
+
+        setDeletingAction(true);
+        setDeleteError('');
         try {
-            await deleteFinalReport(id);
-            await loadFinalReports();
+            await deleteFinalReport(reportToDelete.id, deleteReason.trim(), {
+                deletedBy: user.email || 'ga@edrr.com',
+                deletedByName: user.fullName || user.name || 'Government Agent (GA)'
+            });
+
+
+
+            setDeleteModalOpen(false);
+            setReportToDelete(null);
+            setDeleteReason('');
+            await Promise.all([loadFinalReports(), loadDeletedFinalReports()]);
+            setAnnouncementTrigger(prev => prev + 1);
         } catch (err) {
-            alert('Failed to delete final report: ' + (err.response?.data?.error || err.message));
+            setDeleteError(err.response?.data?.error || err.message || 'Failed to move report to recycle bin.');
+        } finally {
+            setDeletingAction(false);
+        }
+    };
+
+    // Restore final report from recycle bin
+    const handleRestoreDoc = async (id, fileName) => {
+        setActionBusyId(id);
+        try {
+            await restoreFinalReport(id);
+            await Promise.all([loadFinalReports(), loadDeletedFinalReports()]);
+        } catch (err) {
+            alert('Failed to restore final report: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setActionBusyId(null);
+        }
+    };
+
+    // Permanently delete final report from MongoDB and disk
+    const handlePermanentDeleteDoc = async (id, fileName) => {
+        if (!window.confirm(`Are you sure you want to PERMANENTLY delete "${fileName}"?\nThis action cannot be undone and will erase the file from disk.`)) {
+            return;
+        }
+        setActionBusyId(id);
+        try {
+            await permanentlyDeleteFinalReport(id);
+            await loadDeletedFinalReports();
+        } catch (err) {
+            alert('Failed to permanently delete final report: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setActionBusyId(null);
         }
     };
 
@@ -154,17 +251,20 @@ export default function AdminFinalReportPage() {
                         </p>
                     </div>
 
+                    {/* Official GA Alert Announcement Banner & Notifications */}
+                    <AlertAnnouncementBanner refreshTrigger={announcementTrigger} />
+
                     <div className="final-report-layout">
-                        {/* Sidebar: Uploaded Final Reports from RDA */}
+                        {/* Sidebar: Uploaded Final Reports from RDA / Recycle Bin */}
                         <aside className="final-report-side">
                             <div style={{ ...AS.card, marginBottom: 0 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
                                     <h3 style={AS.cardTitle}>
-                                        Uploaded Final Reports ({finalReportsList.length})
+                                        {sideTab === 'active' ? `Final Reports (${finalReportsList.length})` : `Recycle Bin (${deletedReportsList.length})`}
                                     </h3>
                                     <button
                                         type="button"
-                                        onClick={loadFinalReports}
+                                        onClick={() => { loadFinalReports(); loadDeletedFinalReports(); }}
                                         title="Refresh final reports list"
                                         style={{ background: 'transparent', border: 'none', color: '#235347', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}
                                     >
@@ -172,110 +272,325 @@ export default function AdminFinalReportPage() {
                                     </button>
                                 </div>
 
-                                {isGA && (
+                                {/* Tab Toggle: Active vs Recycle Bin */}
+                                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSideTab('active')}
+                                        style={{
+                                            flex: 1,
+                                            padding: '7px 8px',
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            borderRadius: 7,
+                                            border: sideTab === 'active' ? '2px solid #235347' : '1px solid #8EB69B',
+                                            background: sideTab === 'active' ? '#235347' : '#DAF1DE',
+                                            color: sideTab === 'active' ? '#FFFFFF' : '#0B2B26',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Active ({finalReportsList.length})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSideTab('bin')}
+                                        style={{
+                                            flex: 1,
+                                            padding: '7px 8px',
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            borderRadius: 7,
+                                            border: sideTab === 'bin' ? '2px solid #C0392B' : '1px solid #8EB69B',
+                                            background: sideTab === 'bin' ? '#C0392B' : '#DAF1DE',
+                                            color: sideTab === 'bin' ? '#FFFFFF' : '#8B0000',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        🗑 Bin ({deletedReportsList.length})
+                                    </button>
+                                </div>
+
+                                {isGA && sideTab === 'active' && (
                                     <div style={{ background: '#E8F5E9', border: '1px solid #8EB69B', borderRadius: 6, padding: '8px 10px', fontSize: 11, color: '#1B5E20', marginBottom: 12, lineHeight: 1.4 }}>
-                                        <strong>GA View:</strong> Final closure reports submitted by the RDA Office are listed below for verification and archive download.
+                                        <strong>GA View:</strong> Final closure reports submitted by the RDA Office are listed below. Click Delete to specify a removal reason and notify RDA officers.
                                     </div>
                                 )}
 
-                                {loadingFinalReports ? (
-                                    <p style={{ fontSize: 12, color: '#235347' }}>Loading final reports from server...</p>
-                                ) : finalReportsList.length === 0 ? (
-                                    <div style={{ padding: '16px 10px', textAlign: 'center', background: '#DAF1DE', borderRadius: 8, border: '1px dashed #8EB69B' }}>
-                                        <p style={{ fontSize: 13, color: '#0B2B26', fontWeight: 600, margin: '0 0 4px' }}>No final reports uploaded yet.</p>
-                                        <p style={{ fontSize: 11, color: '#235347', margin: 0 }}>
-                                            When an RDA Officer adds a final completion report, it will be saved to MongoDB and appear here immediately for GA Admin review and download.
-                                        </p>
+                                {sideTab === 'bin' && (
+                                    <div style={{ background: '#FFF3CD', border: '1px solid #FFEEBA', borderRadius: 6, padding: '8px 10px', fontSize: 11, color: '#856404', marginBottom: 12, lineHeight: 1.4 }}>
+                                        <strong>Recycle Bin:</strong> Deleted reports are safely stored here with their deletion reasons. You can restore or permanently delete them.
                                     </div>
-                                ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                        {finalReportsList.map(doc => {
-                                            const downloadEndpoint = `http://localhost:8080/api/final-reports/download/${doc.id}`;
-                                            return (
-                                                <div
-                                                    key={doc.id}
-                                                    style={{
-                                                        background: '#DAF1DE',
-                                                        border: '1px solid #8EB69B',
-                                                        borderRadius: 9,
-                                                        padding: '12px 14px',
-                                                        boxShadow: '0 2px 6px rgba(11,43,38,0.06)'
-                                                    }}
-                                                >
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
-                                                        <span style={AS.badge}>
-                                                            {DAMAGE_TYPE_LABEL[doc.damageType] || (doc.damageType || 'OTHER').replace('_', ' ')}
-                                                        </span>
-                                                        {doc.uploadedAt && (
-                                                            <span style={{ fontSize: 11, color: '#235347', fontWeight: 500 }}>
-                                                                {formatDate(doc.uploadedAt)}
+                                )}
+
+                                {sideTab === 'active' ? (
+                                    loadingFinalReports ? (
+                                        <p style={{ fontSize: 12, color: '#235347' }}>Loading final reports from server...</p>
+                                    ) : finalReportsList.length === 0 ? (
+                                        <div style={{ padding: '16px 10px', textAlign: 'center', background: '#DAF1DE', borderRadius: 8, border: '1px dashed #8EB69B' }}>
+                                            <p style={{ fontSize: 13, color: '#0B2B26', fontWeight: 600, margin: '0 0 4px' }}>No final reports uploaded yet.</p>
+                                            <p style={{ fontSize: 11, color: '#235347', margin: 0 }}>
+                                                When an RDA Officer adds a final completion report, it will be saved to MongoDB and appear here immediately for GA Admin review and download.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            {finalReportsList.map(doc => {
+                                                const downloadEndpoint = `http://localhost:8080/api/final-reports/download/${doc.id}`;
+                                                return (
+                                                    <div
+                                                        key={doc.id}
+                                                        style={{
+                                                            background: '#DAF1DE',
+                                                            border: '1px solid #8EB69B',
+                                                            borderRadius: 9,
+                                                            padding: '12px 14px',
+                                                            boxShadow: '0 2px 6px rgba(11,43,38,0.06)'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                                                            <span style={AS.badge}>
+                                                                {doc.title || DAMAGE_TYPE_LABEL[doc.damageType] || (doc.damageType || 'FINAL REPORT').replace('_', ' ')}
                                                             </span>
-                                                        )}
-                                                    </div>
-
-                                                    <div style={{ fontSize: 13, fontWeight: 800, color: '#0B2B26', marginTop: 8, wordBreak: 'break-word' }}>
-                                                        📄 {doc.fileName}
-                                                    </div>
-
-                                                    <div style={{ fontSize: 11, color: '#235347', marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                                                        <span>Uploaded by: <strong>{doc.uploadedBy || 'RDA Officer'}</strong></span>
-                                                        {doc.fileSize ? <span>&bull; {formatFileSize(doc.fileSize)}</span> : null}
-                                                    </div>
-
-                                                    {doc.notes && (
-                                                        <div style={{ background: '#FFFFFF', borderRadius: 6, padding: '6px 8px', marginTop: 8, fontSize: 12, color: '#235347', border: '1px solid #8EB69B', lineHeight: 1.4 }}>
-                                                            <strong style={{ color: '#0B2B26' }}>Summary: </strong>{doc.notes}
+                                                            {doc.uploadedAt && (
+                                                                <span style={{ fontSize: 11, color: '#235347', fontWeight: 500 }}>
+                                                                    {formatDate(doc.uploadedAt)}
+                                                                </span>
+                                                            )}
                                                         </div>
-                                                    )}
 
-                                                    <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                                                        <a
-                                                            href={downloadEndpoint}
-                                                            download={doc.fileName}
-                                                            style={{
-                                                                ...AS.btnPrimary,
-                                                                padding: '7px 16px',
-                                                                fontSize: 12,
-                                                                fontWeight: 700,
-                                                                textDecoration: 'none',
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: 6
-                                                            }}
-                                                        >
-                                                            <span>📥 Download File</span>
-                                                        </a>
+                                                        <div style={{ fontSize: 13, fontWeight: 800, color: '#0B2B26', marginTop: 8, wordBreak: 'break-word' }}>
+                                                            📄 {doc.fileName}
+                                                        </div>
 
-                                                        {(isRDA || isGA) && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteDoc(doc.id, doc.fileName)}
-                                                                title="Delete this final report"
+                                                        <div style={{ fontSize: 11, color: '#235347', marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                                                            <span>Uploaded by: <strong>{doc.uploadedBy || 'RDA Officer'}</strong></span>
+                                                            {doc.fileSize ? <span>&bull; {formatFileSize(doc.fileSize)}</span> : null}
+                                                        </div>
+
+                                                        {doc.notes && (
+                                                            <div style={{ background: '#FFFFFF', borderRadius: 6, padding: '6px 8px', marginTop: 8, fontSize: 12, color: '#235347', border: '1px solid #8EB69B', lineHeight: 1.4 }}>
+                                                                <strong style={{ color: '#0B2B26' }}>Summary: </strong>{doc.notes}
+                                                            </div>
+                                                        )}
+
+                                                        <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                            <a
+                                                                href={downloadEndpoint}
+                                                                download={doc.fileName}
                                                                 style={{
-                                                                    background: 'transparent',
-                                                                    border: '1px solid #C0392B',
-                                                                    color: '#C0392B',
-                                                                    borderRadius: 7,
-                                                                    padding: '6px 10px',
-                                                                    fontSize: 11,
-                                                                    fontWeight: 600,
-                                                                    cursor: 'pointer'
+                                                                    ...AS.btnPrimary,
+                                                                    padding: '7px 16px',
+                                                                    fontSize: 12,
+                                                                    fontWeight: 700,
+                                                                    textDecoration: 'none',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 6
                                                                 }}
                                                             >
-                                                                Delete
-                                                            </button>
-                                                        )}
+                                                                <span>📥 Download File</span>
+                                                            </a>
+
+                                                            {(isRDA || isGA) && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => openDeleteModal(doc)}
+                                                                    title="Delete this final report (move to recycle bin with reason)"
+                                                                    style={{
+                                                                        background: 'transparent',
+                                                                        border: '1px solid #C0392B',
+                                                                        color: '#C0392B',
+                                                                        borderRadius: 7,
+                                                                        padding: '6px 10px',
+                                                                        fontSize: 11,
+                                                                        fontWeight: 600,
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )
+                                ) : (
+                                    /* Recycle Bin List */
+                                    loadingDeletedReports ? (
+                                        <p style={{ fontSize: 12, color: '#235347' }}>Loading recycle bin from server...</p>
+                                    ) : deletedReportsList.length === 0 ? (
+                                        <div style={{ padding: '16px 10px', textAlign: 'center', background: '#FFF5F5', borderRadius: 8, border: '1px dashed #E57373' }}>
+                                            <p style={{ fontSize: 13, color: '#C0392B', fontWeight: 600, margin: '0 0 4px' }}>Recycle Bin is empty.</p>
+                                            <p style={{ fontSize: 11, color: '#795548', margin: 0 }}>
+                                                When a report is deleted by GA Admin, it moves here with the deletion reason and can be restored or permanently removed.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            {deletedReportsList.map(doc => {
+                                                const downloadEndpoint = `http://localhost:8080/api/final-reports/download/${doc.id}`;
+                                                return (
+                                                    <div
+                                                        key={doc.id}
+                                                        style={{
+                                                            background: '#FFF5F5',
+                                                            border: '1.5px solid #E57373',
+                                                            borderRadius: 9,
+                                                            padding: '12px 14px',
+                                                            boxShadow: '0 2px 6px rgba(192,57,43,0.08)'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                                                            <span style={{ ...AS.badge, background: '#C0392B', color: '#FFFFFF' }}>
+                                                                🗑 In Recycle Bin
+                                                            </span>
+                                                            {doc.deletedAt && (
+                                                                <span style={{ fontSize: 11, color: '#C0392B', fontWeight: 600 }}>
+                                                                    {formatDate(doc.deletedAt)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+
+                                                        <div style={{ fontSize: 13, fontWeight: 800, color: '#0B2B26', marginTop: 8, wordBreak: 'break-word' }}>
+                                                            📄 {doc.fileName}
+                                                        </div>
+
+                                                        <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
+                                                            Deleted by: <strong>{doc.deletedByName || doc.deletedBy || 'GA Admin'}</strong>
+                                                        </div>
+
+                                                        {doc.deleteReason && (
+                                                            <div style={{
+                                                                background: '#FFF8E1',
+                                                                borderRadius: 6,
+                                                                padding: '8px 10px',
+                                                                marginTop: 8,
+                                                                fontSize: 12,
+                                                                color: '#8D6E63',
+                                                                border: '1px solid #FFE082',
+                                                                lineHeight: 1.4
+                                                            }}>
+                                                                <strong style={{ color: '#D84315' }}>GA Admin Reason: </strong>
+                                                                <div style={{ marginTop: 2, fontStyle: 'italic', color: '#3E2723' }}>
+                                                                    &ldquo;GA admin remove your uploaded final report on this &quot;{doc.deleteReason}&quot;. check the report and submit it again&rdquo;
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        <div style={{ display: 'flex', gap: 6, marginTop: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                            <a
+                                                                href={downloadEndpoint}
+                                                                download={doc.fileName}
+                                                                style={{
+                                                                    ...AS.btnPrimary,
+                                                                    padding: '6px 12px',
+                                                                    fontSize: 11,
+                                                                    fontWeight: 700,
+                                                                    textDecoration: 'none',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4
+                                                                }}
+                                                            >
+                                                                <span>📥 Download</span>
+                                                            </a>
+
+                                                            {(isGA || isRDA) && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={actionBusyId === doc.id}
+                                                                    onClick={() => handleRestoreDoc(doc.id, doc.fileName)}
+                                                                    title="Restore this report back to active reports list"
+                                                                    style={{
+                                                                        background: '#235347',
+                                                                        border: '1px solid #235347',
+                                                                        color: '#DAF1DE',
+                                                                        borderRadius: 7,
+                                                                        padding: '6px 12px',
+                                                                        fontSize: 11,
+                                                                        fontWeight: 700,
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >
+                                                                    {actionBusyId === doc.id ? 'Restoring...' : '↺ Restore'}
+                                                                </button>
+                                                            )}
+
+                                                            {isGA && (
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={actionBusyId === doc.id}
+                                                                    onClick={() => handlePermanentDeleteDoc(doc.id, doc.fileName)}
+                                                                    title="Permanently erase this report from database and server disk"
+                                                                    style={{
+                                                                        background: 'transparent',
+                                                                        border: '1px solid #C0392B',
+                                                                        color: '#C0392B',
+                                                                        borderRadius: 7,
+                                                                        padding: '6px 10px',
+                                                                        fontSize: 11,
+                                                                        fontWeight: 700,
+                                                                        cursor: 'pointer'
+                                                                    }}
+                                                                >
+                                                                    Delete Permanently
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </aside>
 
                         {/* Main Panel */}
                         <div className="final-report-main">
+                            {/* RDA Notice if reports were removed by GA Admin */}
+                            {isRDA && deletedReportsList.length > 0 && (
+                                <div style={{
+                                    background: '#FFF3CD',
+                                    border: '1.5px solid #FFEEBA',
+                                    color: '#856404',
+                                    borderRadius: 8,
+                                    padding: '12px 16px',
+                                    marginBottom: 16,
+                                    fontSize: 13,
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 12,
+                                    flexWrap: 'wrap'
+                                }}>
+                                    <div>
+                                        <strong style={{ fontSize: 14 }}>⚠️ GA Admin Notice on Final Report:</strong>
+                                        <p style={{ margin: '4px 0 0', lineHeight: 1.4 }}>
+                                            GA admin remove your uploaded final report on this &ldquo;<strong>{deletedReportsList[0].deleteReason || 'Revision requested'}</strong>&rdquo;. check the report and submit it again.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSideTab('bin')}
+                                        style={{
+                                            background: '#856404',
+                                            color: '#FFF3CD',
+                                            border: 'none',
+                                            borderRadius: 6,
+                                            padding: '6px 12px',
+                                            fontSize: 12,
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        View in Recycle Bin ({deletedReportsList.length}) →
+                                    </button>
+                                </div>
+                            )}
                             {isRDA && (
                                 <div style={{ ...AS.card }}>
                                     <h3 style={AS.cardTitle}>Upload Final Report</h3>
@@ -289,13 +604,14 @@ export default function AdminFinalReportPage() {
                                     )}
                                     <form onSubmit={handleUpload} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                         <div>
-                                            <label style={{ ...AS.label, display: 'block', marginBottom: 6 }}>Damage Type *</label>
-                                            <select style={AS.input} value={uploadDamageType} onChange={e => setUploadDamageType(e.target.value)}>
-                                                <option value="">Select a damage type...</option>
-                                                {DAMAGE_TYPE_OPTIONS.map(t => (
-                                                    <option key={t.value} value={t.value}>{t.label}</option>
-                                                ))}
-                                            </select>
+                                            <label style={{ ...AS.label, display: 'block', marginBottom: 6 }}>Title of final report *</label>
+                                            <input
+                                                type="text"
+                                                style={AS.input}
+                                                placeholder="Enter title of final report..."
+                                                value={uploadTitle}
+                                                onChange={e => setUploadTitle(e.target.value)}
+                                            />
                                         </div>
                                         <div>
                                             <label style={{ ...AS.label, display: 'block', marginBottom: 6 }}>Final Report File * (PDF, Word, Excel, max 15MB)</label>
@@ -325,7 +641,27 @@ export default function AdminFinalReportPage() {
                             <div style={S.statsRow}>
                                 <div style={S.statCard}><div style={S.statNum}>{reports.length}</div><div style={S.statLabel}>Cases Closed</div></div>
                                 <div style={S.statCard}><div style={S.statNum}>{typesCovered}</div><div style={S.statLabel}>Damage Types Covered</div></div>
-                                <div style={S.statCard}><div style={S.statNum}>{finalReportsList.length}</div><div style={S.statLabel}>Final Reports Archived</div></div>
+                                <div
+                                    style={{ ...S.statCard, cursor: 'pointer', border: sideTab === 'active' ? '2px solid #235347' : '1px solid #8EB69B' }}
+                                    onClick={() => setSideTab('active')}
+                                    title="View active final reports"
+                                >
+                                    <div style={S.statNum}>{finalReportsList.length}</div>
+                                    <div style={S.statLabel}>Final Reports Active</div>
+                                </div>
+                                <div
+                                    style={{
+                                        ...S.statCard,
+                                        cursor: 'pointer',
+                                        border: sideTab === 'bin' ? '2px solid #C0392B' : '1px solid #8EB69B',
+                                        background: sideTab === 'bin' ? '#FFEBEE' : '#DAF1DE'
+                                    }}
+                                    onClick={() => setSideTab('bin')}
+                                    title="View final reports in Recycle Bin"
+                                >
+                                    <div style={{ ...S.statNum, color: '#C0392B' }}>{deletedReportsList.length}</div>
+                                    <div style={{ ...S.statLabel, color: '#C0392B' }}>🗑 In Recycle Bin</div>
+                                </div>
                             </div>
 
                             <div style={{ ...AS.card, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -431,6 +767,98 @@ export default function AdminFinalReportPage() {
                         <div style={{ textAlign: 'center', marginTop: 8, color: '#235347', fontSize: 12, fontWeight: 600 }}>
                             {photoIndex + 1} / {selectedPhotos.length}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Reason Modal for GA Admin */}
+            {deleteModalOpen && reportToDelete && (
+                <div style={S.modalOverlay} onClick={() => !deletingAction && setDeleteModalOpen(false)}>
+                    <div style={{ ...S.modalContent, maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+                        <button
+                            style={S.modalClose}
+                            disabled={deletingAction}
+                            onClick={() => setDeleteModalOpen(false)}
+                        >
+                            ✕
+                        </button>
+                        <h3 style={{ margin: '0 0 6px', fontSize: 18, color: '#C0392B', fontWeight: 800 }}>
+                            🗑 Move Final Report to Recycle Bin
+                        </h3>
+                        <p style={{ fontSize: 13, color: '#235347', margin: '0 0 14px', lineHeight: 1.4 }}>
+                            Are you sure you want to remove <strong>&ldquo;{reportToDelete.fileName}&rdquo;</strong>? It will be moved to the Recycle Bin and RDA/DMC officers will be notified to review and submit it again.
+                        </p>
+
+                        <form onSubmit={handleConfirmDelete}>
+                            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#0B2B26', marginBottom: 6 }}>
+                                Why are you deleting this report? *
+                            </label>
+                            <textarea
+                                style={{ ...AS.input, height: 90, resize: 'vertical', border: deleteError ? '2px solid #C0392B' : undefined }}
+                                placeholder="e.g. Incomplete damage outcome documentation, missing photographs, or incorrect financial expenditure details..."
+                                value={deleteReason}
+                                onChange={e => { setDeleteReason(e.target.value); setDeleteError(''); }}
+                                autoFocus
+                                required
+                            />
+                            {deleteError && (
+                                <div style={{ color: '#C0392B', fontSize: 12, marginTop: 4, fontWeight: 600 }}>
+                                    {deleteError}
+                                </div>
+                            )}
+
+                            <div style={{
+                                background: '#FFF8E1',
+                                border: '1px solid #FFE082',
+                                borderRadius: 6,
+                                padding: '8px 10px',
+                                margin: '12px 0 16px',
+                                fontSize: 12,
+                                color: '#795548',
+                                lineHeight: 1.4
+                            }}>
+                                <strong>Push notification to RDA/DMC officers:</strong>
+                                <div style={{ fontStyle: 'italic', marginTop: 3, color: '#3E2723' }}>
+                                    &ldquo;GA admin remove your uploaded final report on this &quot;{deleteReason || '...'}&quot;. check the report and submit it again&rdquo;
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                                <button
+                                    type="button"
+                                    disabled={deletingAction}
+                                    onClick={() => setDeleteModalOpen(false)}
+                                    style={{
+                                        background: '#DAF1DE',
+                                        border: '1px solid #8EB69B',
+                                        color: '#0B2B26',
+                                        borderRadius: 7,
+                                        padding: '8px 16px',
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={deletingAction}
+                                    style={{
+                                        background: '#C0392B',
+                                        border: 'none',
+                                        color: '#FFFFFF',
+                                        borderRadius: 7,
+                                        padding: '8px 18px',
+                                        fontSize: 13,
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {deletingAction ? 'Removing...' : 'Confirm & Move to Recycle Bin'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

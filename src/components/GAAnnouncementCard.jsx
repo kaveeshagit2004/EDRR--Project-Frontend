@@ -246,7 +246,6 @@ export default function GAAnnouncementCard({ onAnnouncementSent }) {
                                     disabled={submitting}
                                 >
                                     <option value="ALL">All (Citizens & Officers)</option>
-                                    <option value="CITIZENS">Citizens Only</option>
                                     <option value="OFFICERS">Officers Only</option>
                                 </select>
                             </div>

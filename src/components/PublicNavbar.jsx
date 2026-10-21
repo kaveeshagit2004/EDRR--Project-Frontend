@@ -6,7 +6,7 @@ import { getDamageReportingStatus } from '../api/api';
 const baseLinks = [
   { to: '/citizen', label: 'Home' },
   { to: '/citizen/reports', label: 'Situation Reports' },
-  { to: '/citizen/report-damage', label: 'Report Damage', requiresOpen: true },
+  { to: '/citizen/report-damage', label: 'Citizen Reports', requiresOpen: true },
   { to: '/citizen/water', label: 'Flood Monitor' },
   { to: '/citizen/map', label: 'Map' },
   { to: '/citizen/alerts', label: 'Alerts' },

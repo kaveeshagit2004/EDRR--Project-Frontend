@@ -22,7 +22,16 @@ export default function Sidebar({ role, links }) {
       </div>
 
       <div className="side-user-card">
-        <div className="side-avatar">{user.fullName?.[0]?.toUpperCase() || 'U'}</div>
+        {user.profilePhotoUrl ? (
+          <img
+            src={user.profilePhotoUrl}
+            alt={user.fullName || 'User'}
+            className="side-avatar"
+            style={{ objectFit: 'cover' }}
+          />
+        ) : (
+          <div className="side-avatar">{user.fullName?.[0]?.toUpperCase() || 'U'}</div>
+        )}
         <div><strong>{user.fullName || 'Protect LK User'}</strong><span>{role}</span></div>
       </div>
 

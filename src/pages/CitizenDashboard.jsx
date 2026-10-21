@@ -53,10 +53,9 @@ export default function CitizenDashboard() {
   }, []);
 
   const majorWater = waterLevels.filter(w => getRecordAlertInfo(w).status === 'MAJOR');
-  const warningWater = waterLevels.filter(w => {
-    const info = getRecordAlertInfo(w);
-    return info.status === 'MINOR' || info.status === 'ALERT';
-  });
+  const minorWater = waterLevels.filter(w => getRecordAlertInfo(w).status === 'MINOR');
+  const alertWater = waterLevels.filter(w => getRecordAlertInfo(w).status === 'ALERT');
+  const warningWater = [...minorWater, ...alertWater];
   const activeAlertsCount = waterLevels.filter(w => getRecordAlertInfo(w).status !== 'NORMAL').length;
 
   return (
@@ -160,16 +159,30 @@ export default function CitizenDashboard() {
           </section>
         )}
 
-        {majorWater.length === 0 && warningWater.length > 0 && (
-          <section className="critical-banner" style={{ marginTop: '24px', background: '#ea580c', color: '#fff', borderLeft: '6px solid #c2410c' }}>
-            <div>
-              <span style={{ color: '#ffedd5', fontWeight: 800 }}>⚠️ FLOOD ADVISORY ACTIVE</span>
-              <h3 style={{ color: '#fff' }}>{warningWater.map(w => w.locationName).join(', ')}</h3>
-              <p style={{ color: '#ffedd5' }}>One or more stations are currently at Minor Flood or Alert water levels.</p>
-            </div>
-            <Link to="/citizen/alerts" style={{ background: '#fff', color: '#ea580c', fontWeight: 800 }}>View Alerts →</Link>
-          </section>
-        )}
+        {majorWater.length === 0 && warningWater.length > 0 && (() => {
+          const isMinor = minorWater.length > 0;
+          const bg = isMinor ? '#FFCE1B' : '#00008B';
+          const border = isMinor ? '6px solid #d4a000' : '6px solid #000066';
+          const textColor = isMinor ? '#000000' : '#ffffff';
+          const subColor = isMinor ? '#222222' : '#E8EEF9';
+          const btnBg = isMinor ? '#0B2B26' : '#ffffff';
+          const btnText = isMinor ? '#DAF1DE' : '#00008B';
+          const title = isMinor ? '⚠️ MINOR FLOOD WARNING ACTIVE' : '⚡ WATER LEVEL ALERT ACTIVE';
+          return (
+            <section className="critical-banner" style={{ marginTop: '24px', background: bg, color: textColor, borderLeft: border }}>
+              <div>
+                <span style={{ color: textColor, fontWeight: 800 }}>{title}</span>
+                <h3 style={{ color: textColor }}>{warningWater.map(w => w.locationName).join(', ')}</h3>
+                <p style={{ color: subColor }}>
+                  {isMinor
+                    ? 'One or more stations are currently at Minor Flood (Yellow) level.'
+                    : 'One or more stations are currently at Alert Water (Blue) level.'}
+                </p>
+              </div>
+              <Link to="/citizen/alerts" style={{ background: btnBg, color: btnText, fontWeight: 800 }}>View Alerts →</Link>
+            </section>
+          );
+        })()}
 
         <section className="home-section two-column-home">
           <div className="home-main-column">

@@ -35,8 +35,8 @@ function formatFullDateTime(date) {
 
 const STATUS_COLOR = {
     CRITICAL: { line: '#dc2626', bg: '#fee2e2', text: '#991b1b', label: 'Major Flood' },
-    WARNING:  { line: '#ea580c', bg: '#ffedd5', text: '#9a3412', label: 'Minor Flood' },
-    ALERT:    { line: '#eab308', bg: '#fef9c3', text: '#854d0e', label: 'Alert Level' },
+    WARNING:  { line: '#FFCE1B', bg: '#FFF9D2', text: '#714B00', label: 'Minor Flood' },
+    ALERT:    { line: '#00008B', bg: '#E8EEF9', text: '#00008B', label: 'Alert Level' },
     NORMAL:   { line: '#235347', bg: '#DAF1DE', text: '#0B2B26', label: 'Normal Flow' }
 };
 
@@ -219,12 +219,12 @@ export default function WaterLevelChart({
                     <span style={{ width: 14, height: 2, background: '#dc2626', display: 'inline-block', borderTop: '2px dashed #dc2626' }} />
                     Major Flood: <strong>{major}m</strong>
                 </span>
-                <span style={{ color: '#ea580c', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 14, height: 2, background: '#ea580c', display: 'inline-block', borderTop: '2px dashed #ea580c' }} />
+                <span style={{ color: '#714B00', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 14, height: 2, background: '#FFCE1B', display: 'inline-block', borderTop: '2px dashed #FFCE1B' }} />
                     Minor Flood: <strong>{minor}m</strong>
                 </span>
-                <span style={{ color: '#ca8a04', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ width: 14, height: 2, background: '#eab308', display: 'inline-block', borderTop: '2px dashed #eab308' }} />
+                <span style={{ color: '#00008B', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 14, height: 2, background: '#00008B', display: 'inline-block', borderTop: '2px dashed #00008B' }} />
                     Alert Level: <strong>{alert}m</strong>
                 </span>
             </div>
@@ -320,7 +320,7 @@ export default function WaterLevelChart({
                         UPDATE TIME &amp; DATE (PAST 7 DAYS)
                     </text>
 
-                    {/* Reference Line: Alert Level (Yellow) */}
+                    {/* Reference Line: Alert Level (Blue: #00008B) */}
                     {yAlert >= paddingTop && yAlert <= paddingTop + chartH && (
                         <g>
                             <line
@@ -328,7 +328,7 @@ export default function WaterLevelChart({
                                 y1={yAlert}
                                 x2={width - paddingRight}
                                 y2={yAlert}
-                                stroke="#eab308"
+                                stroke="#00008B"
                                 strokeWidth="1.5"
                                 strokeDasharray="4 3"
                             />
@@ -338,8 +338,8 @@ export default function WaterLevelChart({
                                 width="74"
                                 height="17"
                                 rx="4"
-                                fill="#fef9c3"
-                                stroke="#eab308"
+                                fill="#E8EEF9"
+                                stroke="#00008B"
                                 strokeWidth="1"
                             />
                             <text
@@ -348,14 +348,14 @@ export default function WaterLevelChart({
                                 textAnchor="middle"
                                 fontSize="10"
                                 fontWeight="700"
-                                fill="#854d0e"
+                                fill="#00008B"
                             >
                                 Alert: {alert}m
                             </text>
                         </g>
                     )}
 
-                    {/* Reference Line: Minor Flood Level (Orange) */}
+                    {/* Reference Line: Minor Flood Level (Yellow: #FFCE1B) */}
                     {yMinor >= paddingTop && yMinor <= paddingTop + chartH && (
                         <g>
                             <line
@@ -363,7 +363,7 @@ export default function WaterLevelChart({
                                 y1={yMinor}
                                 x2={width - paddingRight}
                                 y2={yMinor}
-                                stroke="#ea580c"
+                                stroke="#FFCE1B"
                                 strokeWidth="1.5"
                                 strokeDasharray="5 3"
                             />
@@ -373,8 +373,8 @@ export default function WaterLevelChart({
                                 width="74"
                                 height="17"
                                 rx="4"
-                                fill="#ffedd5"
-                                stroke="#ea580c"
+                                fill="#FFF9D2"
+                                stroke="#FFCE1B"
                                 strokeWidth="1"
                             />
                             <text
@@ -383,7 +383,7 @@ export default function WaterLevelChart({
                                 textAnchor="middle"
                                 fontSize="10"
                                 fontWeight="700"
-                                fill="#9a3412"
+                                fill="#714B00"
                             >
                                 Minor: {minor}m
                             </text>
