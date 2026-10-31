@@ -61,17 +61,17 @@ export default function WaterOverviewPage() {
                     <div style={{ background: '#E8EEF9', borderRadius: 10, padding: '14px 10px', textAlign: 'center', boxShadow: '0 2px 8px rgba(11,43,38,0.10)', border: '1px solid #00008B', borderTop: '4px solid #00008B' }}>
                         <div style={{ fontSize: 26, fontWeight: 800, color: '#00008B' }}>{alertCount}</div>
                         <div style={{ fontSize: 12, color: '#00008B', marginTop: 2, fontWeight: 700 }}>Alert Level</div>
-                        <div style={{ fontSize: 11, color: '#00008B' }}>Blue Watch</div>
+                        <div style={{ fontSize: 11, color: '#00008B' }}>Watch</div>
                     </div>
                     <div style={{ background: '#FFF9D2', borderRadius: 10, padding: '14px 10px', textAlign: 'center', boxShadow: '0 2px 8px rgba(11,43,38,0.10)', border: '1px solid #FFCE1B', borderTop: '4px solid #FFCE1B' }}>
                         <div style={{ fontSize: 26, fontWeight: 800, color: '#714B00' }}>{minorCount}</div>
                         <div style={{ fontSize: 12, color: '#714B00', marginTop: 2, fontWeight: 700 }}>Minor Flood</div>
-                        <div style={{ fontSize: 11, color: '#714B00' }}>Yellow Warning</div>
+                        <div style={{ fontSize: 11, color: '#714B00' }}>Warning</div>
                     </div>
                     <div style={{ background: '#fee2e2', borderRadius: 10, padding: '14px 10px', textAlign: 'center', boxShadow: '0 2px 8px rgba(11,43,38,0.10)', border: '1px solid #dc2626', borderTop: '4px solid #dc2626' }}>
                         <div style={{ fontSize: 26, fontWeight: 800, color: '#dc2626' }}>{majorCount}</div>
                         <div style={{ fontSize: 12, color: '#991b1b', marginTop: 2, fontWeight: 700 }}>Major Flood</div>
-                        <div style={{ fontSize: 11, color: '#991b1b' }}>Red Critical</div>
+                        <div style={{ fontSize: 11, color: '#991b1b' }}>Critical</div>
                     </div>
                 </div>
 
